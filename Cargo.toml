@@ -1,0 +1,31 @@
+[package]
+name = "eternalreckoning-client"
+version = "0.1.0"
+authors = ["Henry Carlson <henry.carlson@gmail.com>"]
+edition = "2018"
+
+[features]
+default = [
+    "rendy/vulkan",
+    "rendy/texture-image",
+    "rendy/texture-palette",
+]
+
+x11 = [
+    "default",
+    "rendy/vulkan-x11"
+]
+
+[dependencies]
+eternalreckoning-core = { version = "0.1.0", path = "../core" }
+
+bitflags = "1.1"
+env_logger = "0.6"
+failure = "0.1"
+gfx-hal = "0.3"
+lazy_static = "1.4"
+log = "0.4"
+nalgebra = "0.18"
+rendy = { git = "https://github.com/amethyst/rendy" }
+specs = "0.15"
+tokio = "0.1"
