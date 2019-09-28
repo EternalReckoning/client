@@ -6,6 +6,7 @@ use specs::{
     world::Builder,
 };
 
+use crate::input::MouseEuler;
 use super::event::{
     Event,
     Update,
@@ -30,9 +31,10 @@ pub fn build_simulation<'a, 'b>(update_tx: Sender<Update>) -> Simulation<'a, 'b,
     world.register::<Position>();
 
     world.insert(InputMap::default());
+    world.insert(MouseEuler::default());
 
     world.create_entity()
-        .with(Position(nalgebra::Point3::new(0.0, -1.0, 0.0)))
+        .with(Position(nalgebra::Point3::new(0.0, 0.0, 0.0)))
         .with(Movement { speed: 0.1 })
         .build();
     

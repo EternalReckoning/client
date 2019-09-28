@@ -5,6 +5,7 @@ pub enum Event {
 pub enum InputEvent {
     KeyUp(crate::input::InputTypes),
     KeyDown(crate::input::InputTypes),
+    CameraAngle(crate::input::MouseEuler),
 }
 
 pub struct Update {

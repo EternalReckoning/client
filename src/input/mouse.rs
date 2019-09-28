@@ -1,6 +1,6 @@
 use std::f64::consts::PI;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MouseEuler {
     pub pitch: f64,
     pub yaw: f64,
@@ -12,13 +12,29 @@ pub struct MouseSensitivity {
     yaw: f64,
 }
 
+#[derive(serde::Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
+pub struct MouseConfig {
+    pub sensitivity: f64,
+}
+
+impl Default for MouseConfig {
+    fn default() -> MouseConfig {
+        MouseConfig {
+            sensitivity: 5.0,
+        }
+    }
+}
+
 const HALF_PI: f64 = PI / 2.0;
 
-impl MouseEuler {
-    pub fn new() -> MouseEuler {
+impl Default for MouseEuler {
+    fn default() -> MouseEuler {
         MouseEuler { pitch: 0.0, yaw: 0.0 }
     }
+}
 
+impl MouseEuler {
     pub fn update(&mut self, delta: (f64, f64), sensitivity: &MouseSensitivity) {
         let pitch_mult = sensitivity.sensitivity * sensitivity.pitch;
         let yaw_mult = sensitivity.sensitivity * sensitivity.yaw;
@@ -30,7 +46,7 @@ impl MouseEuler {
             self.pitch = -HALF_PI;
         }
 
-        self.yaw += delta.0 * yaw_mult;
+        self.yaw -= delta.0 * yaw_mult;
         if self.yaw > PI {
             self.yaw = -PI + self.yaw % PI;
         } else if self.yaw < -PI {
