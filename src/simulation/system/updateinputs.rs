@@ -33,9 +33,10 @@ impl<'a> System<'a> for UpdateInputs {
                         InputEvent::CameraAngle(data) => {
                             mouse_euler.pitch = data.pitch;
                             mouse_euler.yaw = data.yaw;
-                        }
+                        },
                     };
                 },
+                _ => (),
             }
         }
     }

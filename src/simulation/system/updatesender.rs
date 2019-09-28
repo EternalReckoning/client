@@ -14,11 +14,11 @@ use super::super::{
 };
 
 pub struct UpdateSender {
-    sender: Sender<Update>,
+    sender: Vec<Sender<Update>>,
 }
 
 impl UpdateSender {
-    pub fn new(sender: Sender<Update>) -> UpdateSender {
+    pub fn new(sender: Vec<Sender<Update>>) -> UpdateSender {
         UpdateSender { sender }
     }
 }
@@ -28,16 +28,20 @@ impl<'a> System<'a> for UpdateSender {
 
     fn run(&mut self, pos: Self::SystemData) {
         for pos in pos.join() {
-            self.sender.send(
-                Update {
-                    time: std::time::Instant::now(),
-                    event: UpdateEvent::PositionUpdate(
-                        PositionUpdate {
-                            position: pos.0.clone(),
-                        },
-                    ),
-                }
-            ).unwrap();
+            let event = Update {
+                time: std::time::Instant::now(),
+                event: UpdateEvent::PositionUpdate(
+                    PositionUpdate {
+                        position: pos.0.clone(),
+                    },
+                ),
+            };
+
+            for sender in &self.sender {
+                sender.send(event.clone()).map_err(|err| {
+                    log::error!("failed to send update event: {}", err);
+                });
+            }
         }
     }
 }

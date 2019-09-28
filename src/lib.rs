@@ -15,8 +15,7 @@ use eternalreckoning_core::util::config::Config;
 
 pub struct Bootstrap {
     pub args: Vec<String>,
-    pub default_config: Option<String>,
-    pub user_config: Option<String>,
+    pub config: Option<String>,
 }
 
 pub fn run(bootstrap: Bootstrap) -> Result<(), Error> {
@@ -41,8 +40,8 @@ fn initialize(bootstrap: Bootstrap)
 fn get_configuration(bootstrap: Bootstrap)
     -> Result<Config<util::config::Config>, Error>
 {
-    match bootstrap.default_config {
-        Some(path) => Ok(Config::<util::config::Config>::from_file(path)?),
+    match bootstrap.config {
+        Some(path) => Ok(Config::<util::config::Config>::from_file(&path)?),
         None => Err(format_err!("no configuration file path provided")),
     }
 }

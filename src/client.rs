@@ -82,7 +82,7 @@ fn run(
                     if input.scancode == 1 {
                         *control_flow = winit::event_loop::ControlFlow::Exit;
                     }
-                    
+
                     if let Some(action) = key_map.get(&input.scancode) {
                         let event = match input.state {
                             winit::event::ElementState::Pressed => event::InputEvent::KeyDown(*action),
@@ -220,9 +220,20 @@ pub fn main(config: config::Config) -> Result<(), Error> {
         &window,
     );
 
+    let (event_tx, event_rx) = channel();
+    let (net_update_tx, net_update_rx) = channel();
+
     log::info!("Initializing networking");
     
-    networking::connect();
+    let net_event_tx = event_tx.clone();
+    let addr = config.client.server_address.clone();
+    thread::spawn(move || {
+        networking::connect(
+            &addr,
+            net_update_rx,
+            net_event_tx
+        );
+    });
     
     log::info!("Initializing simulation");
     
@@ -230,15 +241,13 @@ pub fn main(config: config::Config) -> Result<(), Error> {
         1000 / TICK_RATE
     );
 
-    let (event_tx, event_rx) = channel();
-    let (update_tx, update_rx) = channel();
-
+    let (main_update_tx, main_update_rx) = channel();
     thread::spawn(move || {
-        let mut game = build_simulation(vec![update_tx]);
+        let mut game = build_simulation(vec![main_update_tx, net_update_tx]);
         game.run(event_rx, tick_length);
     });
 
     log::info!("Entering main loop");
     
-    run(window, factory, families, scene, graph, config, event_tx, update_rx)
+    run(window, factory, families, scene, graph, config, event_tx, main_update_rx)
 }

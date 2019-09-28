@@ -44,7 +44,9 @@ pub fn configure(config: &LoggingConfig) -> Result<(), Error> {
                 message
             ))
         })
-        .level(level)
+        .level(log::LevelFilter::Warn)
+        .level_for("eternalreckoning_core", level)
+        .level_for("eternalreckoning_client", level)
         .chain(std::io::stdout());
     
     if let Some(ref path) = config.file {

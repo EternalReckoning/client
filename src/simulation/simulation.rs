@@ -24,7 +24,7 @@ use super::system::{
 
 use eternalreckoning_core::simulation::Simulation;
 
-pub fn build_simulation<'a, 'b>(update_tx: Sender<Update>) -> Simulation<'a, 'b, Event> {
+pub fn build_simulation<'a, 'b>(update_tx: Vec<Sender<Update>>) -> Simulation<'a, 'b, Event> {
     let mut world = World::new();
 
     world.register::<Movement>();

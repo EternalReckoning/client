@@ -20,10 +20,12 @@ x11 = [
 eternalreckoning-core = { version = "0.1.0", path = "../core" }
 
 bitflags = "1.1"
+bytes = "0.4"
 chrono = "0.4"
 env_logger = "0.6"
 failure = "0.1"
 failure_derive = "0.1"
+futures = "0.1"
 fern = "0.5"
 gfx-hal = "0.3"
 lazy_static = "1.4"

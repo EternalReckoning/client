@@ -6,8 +6,12 @@ fn main() {
 
     let bootstrap = eternalreckoning_client::Bootstrap {
         args: args,
-        default_config: Some("config/default.toml".to_string()),
-        user_config: None,
+        config: Some(
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/config/default.toml"
+            ).to_string()
+        ),
     };
 
     if let Err(ref e) = eternalreckoning_client::run(bootstrap) {
