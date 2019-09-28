@@ -79,6 +79,10 @@ fn run(
                     *control_flow = winit::event_loop::ControlFlow::Exit;
                 },
                 winit::event::WindowEvent::KeyboardInput { input, .. } => {
+                    if input.scancode == 1 {
+                        *control_flow = winit::event_loop::ControlFlow::Exit;
+                    }
+                    
                     if let Some(action) = key_map.get(&input.scancode) {
                         let event = match input.state {
                             winit::event::ElementState::Pressed => event::InputEvent::KeyDown(*action),
@@ -230,7 +234,7 @@ pub fn main(config: config::Config) -> Result<(), Error> {
     let (update_tx, update_rx) = channel();
 
     thread::spawn(move || {
-        let mut game = build_simulation(update_tx);
+        let mut game = build_simulation(vec![update_tx]);
         game.run(event_rx, tick_length);
     });
 
