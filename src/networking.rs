@@ -3,9 +3,7 @@ use std::sync::mpsc::{
     Sender,
 };
 
-use bytes::Bytes;
 use failure::Error;
-use futures::sync::mpsc;
 use tokio::io::{
     ReadHalf,
     WriteHalf,
@@ -19,14 +17,17 @@ use tokio::codec::{
 
 use eternalreckoning_core::net::{
     codec::EternalReckoningCodec,
-    packet::{
-        Packet,
+    operation::{
+        self,
         Operation,
     },
 };
-use crate::simulation::event::{
-    Event,
-    Update,
+use crate::simulation::{
+    self,
+    event::{
+        Event,
+        Update,
+    },
 };
 
 enum ReadConnectionState {
@@ -37,16 +38,6 @@ enum ReadConnectionState {
 struct ReadConnection {
     frames: FramedRead<ReadHalf<TcpStream>, EternalReckoningCodec>,
     state: ReadConnectionState,
-}
-
-enum WriteConnectionState {
-    SendConnectionRequest,
-    Connected,
-}
-
-struct WriteConnection {
-    frames: FramedWrite<WriteHalf<TcpStream>, EternalReckoningCodec>,
-    state: WriteConnectionState,
 }
 
 pub fn connect(address: &String, update_rx: Receiver<Update>, update_tx: Sender<Event>) {
@@ -66,7 +57,7 @@ pub fn connect(address: &String, update_rx: Receiver<Update>, update_tx: Sender<
             tokio::spawn(read_connection);
             
             let framed_writer = FramedWrite::new(writer, EternalReckoningCodec);
-            let write_connection = WriteConnection::new(framed_writer)
+            let write_connection = WriteConnection::new(framed_writer, update_rx)
                 .map_err(|err| {
                     log::error!("Write failed: {:?}", err);
                 });
@@ -80,21 +71,29 @@ pub fn connect(address: &String, update_rx: Receiver<Update>, update_tx: Sender<
 }
 
 impl ReadConnection {
-    pub fn new(frames: FramedRead<ReadHalf<TcpStream>, EternalReckoningCodec>) -> ReadConnection {
+    pub fn new(frames: FramedRead<ReadHalf<TcpStream>, EternalReckoningCodec>)
+        -> ReadConnection
+    {
         ReadConnection {
             frames,
             state: ReadConnectionState::AwaitConnectionResponse,
         }
     }
 
-    fn await_connection_response(&mut self, packet: &Packet) -> Result<(), Error> {
-        if packet.operation != Operation::ConnectRes {
-            return Err(failure::format_err!(
-                "unexpected message from server: {}",
-                packet.operation
-            ));
-        }
+    fn await_connection_response(&mut self, packet: &Operation)
+        -> Result<(), Error>
+    {
+        match packet {
+            Operation::SvConnectResponse(_) => (),
+            _ => {
+                return Err(failure::format_err!(
+                    "unexpected message from server: {}",
+                    packet
+                ));
+            }
+        };
 
+        log::debug!("Server handshake completed");
         self.state = ReadConnectionState::Connected;
 
         Ok(())
@@ -124,21 +123,35 @@ impl Future for ReadConnection {
     }
 }
 
+enum WriteConnectionState {
+    SendConnectionRequest,
+    Sending,
+    Connected,
+}
+
+struct WriteConnection {
+    frames: FramedWrite<WriteHalf<TcpStream>, EternalReckoningCodec>,
+    update_rx: Receiver<Update>,
+    state: WriteConnectionState,
+}
+
 impl WriteConnection {
-    pub fn new(frames: FramedWrite<WriteHalf<TcpStream>, EternalReckoningCodec>) -> WriteConnection {
+    pub fn new(
+        frames: FramedWrite<WriteHalf<TcpStream>, EternalReckoningCodec>,
+        update_rx: Receiver<Update>,
+    ) -> WriteConnection
+    {
         WriteConnection {
             frames,
+            update_rx,
             state: WriteConnectionState::SendConnectionRequest,
         }
     }
 
-    fn send_connection_request(&mut self) -> Result<(), Error> {
-        log::trace!("Starting send for packet: {}", Operation::ConnectReq);
-        self.frames.start_send(Packet {
-            operation: Operation::ConnectReq,
-        })?;
-        self.state = WriteConnectionState::Connected;
-
+    fn send(&mut self, packet: Operation) -> Result<(), Error> {
+        log::trace!("Starting send for packet: {}", packet);
+        self.frames.start_send(packet)?;
+        self.state = WriteConnectionState::Sending;
         Ok(())
     }
 }
@@ -150,10 +163,33 @@ impl Future for WriteConnection {
     fn poll(&mut self) -> Poll<(), Error> {
         loop {
             match self.state {
-                WriteConnectionState::SendConnectionRequest => self.send_connection_request()?,
-                WriteConnectionState::Connected => {
+                WriteConnectionState::SendConnectionRequest => {
+                    self.send(Operation::ClConnectMessage(operation::ClConnectMessage))?;
+                },
+                WriteConnectionState::Sending => {
                     log::trace!("Finishing write");
-                    return self.frames.poll_complete();
+                    futures::try_ready!(self.frames.poll_complete());
+                    self.state = WriteConnectionState::Connected;
+                },
+                WriteConnectionState::Connected => {
+                    // FIXME: blocking io call
+                    match self.update_rx.recv() {
+                        Ok(update) => {
+                            match update.event {
+                                simulation::event::UpdateEvent::PositionUpdate(data) => {
+                                    self.send(Operation::ClMoveSetPosition(
+                                        operation::ClMoveSetPosition {
+                                            pos: data.position.clone(),
+                                        }
+                                    ))?;
+                                },
+                            }
+                        },
+                        Err(err) => {
+                            log::error!("Failed to read update channel: {:?}", err);
+                            return Ok(Async::Ready(()))
+                        },
+                    };
                 },
             }
         }
