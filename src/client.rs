@@ -176,39 +176,60 @@ pub fn main(config: config::Config) -> Result<(), Error> {
 
     let aspect = window.get_aspect_ratio() as f32;
 
-    let marker_reader = std::io::BufReader::new(
-        std::fs::File::open(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/assets/marker.wc1"
-        ))?
-    );
-
-    let floor_reader = std::io::BufReader::new(
-        std::fs::File::open(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/assets/floor.wc1"
-        ))?
-    );
-
     let mut scene = renderer::scene::Scene {
         camera: renderer::scene::Camera::new(aspect),
         ui: renderer::scene::UI::new(aspect),
+        models: vec![
+            loaders::model_from_wc1(
+                std::io::BufReader::new(
+                    std::fs::File::open(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/assets/floor.wc1"
+                    ))?
+                )
+            )?,
+            loaders::model_from_wc1(
+                std::io::BufReader::new(
+                    std::fs::File::open(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/assets/marker.wc1"
+                    ))?
+                )
+            )?,
+            loaders::model_from_wc1(
+                std::io::BufReader::new(
+                    std::fs::File::open(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/assets/pillar.wc1"
+                    ))?
+                )
+            )?,
+        ],
         objects: vec![
             renderer::scene::Object {
-                mesh: loaders::mesh_from_wc1(floor_reader)
-                    .unwrap()
-                    .build()
-                    .unwrap(),
+                model: 0,
                 position: nalgebra::Transform3::identity() *
                     nalgebra::Translation3::new(0.0, 0.0, 0.0),
             },
             renderer::scene::Object {
-                mesh: loaders::mesh_from_wc1(marker_reader)
-                    .unwrap()
-                    .build()
-                    .unwrap(),
+                model: 1,
                 position: nalgebra::Transform3::identity() *
                     nalgebra::Translation3::new(0.0, 0.0, 0.0),
+            },
+            renderer::scene::Object {
+                model: 2,
+                position: nalgebra::Transform3::identity() *
+                    nalgebra::Translation3::new(-5.0, 0.0, 7.0),
+            },
+            renderer::scene::Object {
+                model: 2,
+                position: nalgebra::Transform3::identity() *
+                    nalgebra::Translation3::new(0.0, 0.0, 7.0),
+            },
+            renderer::scene::Object {
+                model: 2,
+                position: nalgebra::Transform3::identity() *
+                    nalgebra::Translation3::new(5.0, 0.0, 7.0),
             },
         ],
     };

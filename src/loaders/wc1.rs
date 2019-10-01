@@ -2,7 +2,11 @@ use std::io::Read;
 
 use bitflags::bitflags;
 
-use crate::renderer::mesh::MeshBuilder;
+use crate::renderer::{
+    Mesh,
+    Model,
+    mesh::MeshBuilder,
+};
 
 #[repr(C)]
 struct Header {
@@ -40,7 +44,7 @@ struct VertexColor {
 #[repr(C)]
 struct Index(u64);
 
-pub fn mesh_from_wc1(mut reader: std::io::BufReader<std::fs::File>) -> Result<MeshBuilder, failure::Error> {
+pub fn model_from_wc1(mut reader: std::io::BufReader<std::fs::File>) -> Result<Model, failure::Error> {
     let mut header: Header = unsafe { std::mem::zeroed() };
     let header_size = std::mem::size_of::<Header>();
 
@@ -52,9 +56,19 @@ pub fn mesh_from_wc1(mut reader: std::io::BufReader<std::fs::File>) -> Result<Me
         reader.read_exact(header_slice)?;
     }
 
-    let mut vertices = Vec::new();
-    let mut indices = Vec::new();
+    let mut model = Model::new();
 
+    for _object_index in 0..header.object_count {
+        let mesh = mesh_from_wc1(&mut reader)?;
+        let position = nalgebra::Point3::<f32>::new(0.0, 0.0, 0.0);
+
+        model.add_mesh(position, mesh);
+    }
+
+    Ok(model)
+}
+
+fn mesh_from_wc1(reader: &mut std::io::BufReader<std::fs::File>) -> Result<Mesh, failure::Error> {
     let mut mesh_builder = MeshBuilder::new();
 
     let mut object_header: ObjectHeader = unsafe { std::mem::zeroed() };
@@ -66,75 +80,84 @@ pub fn mesh_from_wc1(mut reader: std::io::BufReader<std::fs::File>) -> Result<Me
     let mut index: Index = unsafe { std::mem::zeroed() };
     let index_size = std::mem::size_of::<Index>();
 
-    for _object_index in 0..header.object_count {
+    unsafe {
+        let object_header_slice = std::slice::from_raw_parts_mut(
+            &mut object_header as *mut _ as *mut u8,
+            object_header_size,
+        );
+        reader.read_exact(object_header_slice)?;
+    }
+
+    let mut vertices = Vec::with_capacity(object_header.vertex_count as usize);
+    let mut colors = Vec::with_capacity(object_header.index_count as usize);
+    let mut indices = Vec::with_capacity(object_header.index_count as usize);
+
+    for _vertex_index in 0..object_header.vertex_count {
         unsafe {
-            let object_header_slice = std::slice::from_raw_parts_mut(
-                &mut object_header as *mut _ as *mut u8,
-                object_header_size,
+            let vertex_slice = std::slice::from_raw_parts_mut(
+                &mut vertex as *mut _ as *mut u8,
+                vertex_size,
             );
-            reader.read_exact(object_header_slice)?;
+            reader.read_exact(vertex_slice)?;
         }
 
-        for _vertex_index in 0..object_header.vertex_count {
+        vertices.push([
+            vertex.x as f32,
+            vertex.y as f32,
+            vertex.z as f32,
+        ]);
+    }
+    
+    mesh_builder = mesh_builder.with_vertices(&vertices);
+
+    if object_header.flags.contains(ObjectFlags::HAS_COLORS) {
+        let mut color: VertexColor = unsafe { std::mem::zeroed() };
+        let color_size = std::mem::size_of::<VertexColor>();
+        for _index in 0..object_header.index_count {
             unsafe {
-                let vertex_slice = std::slice::from_raw_parts_mut(
-                    &mut vertex as *mut _ as *mut u8,
-                    vertex_size,
+                let color_slice = std::slice::from_raw_parts_mut(
+                    &mut color as *mut _ as *mut u8,
+                    color_size,
                 );
-                reader.read_exact(vertex_slice)?;
+                reader.read_exact(color_slice)?;
             }
 
-            vertices.push([
-                vertex.x as f32,
-                vertex.y as f32,
-                vertex.z as f32,
+            colors.push([
+                color.r as f32,
+                color.g as f32,
+                color.b as f32,
+                color.a as f32,
             ]);
         }
+    }
 
-        if object_header.flags.contains(ObjectFlags::HAS_COLORS) {
-            let mut colors = Vec::with_capacity(object_header.index_count as usize);
+    for _index_index in 0..object_header.index_count {
+        unsafe {
+            let index_slice = std::slice::from_raw_parts_mut(
+                &mut index as *mut _ as *mut u8,
+                index_size,
+            );
+            reader.read_exact(index_slice)?;
+        }
 
-            let mut color: VertexColor = unsafe { std::mem::zeroed() };
-            let color_size = std::mem::size_of::<VertexColor>();
-            for _index in 0..object_header.index_count {
-                unsafe {
-                    let color_slice = std::slice::from_raw_parts_mut(
-                        &mut color as *mut _ as *mut u8,
-                        color_size,
-                    );
-                    reader.read_exact(color_slice)?;
+        indices.push(index.0 as u32);
+    }
+
+    if object_header.flags.contains(ObjectFlags::HAS_COLORS) {
+        let mut reorder_colors = Vec::with_capacity(object_header.vertex_count as usize);
+        for index in 0..(object_header.vertex_count as u32) {
+            for index_index in 0..indices.len() {
+                if *indices.get(index_index).unwrap() == index {
+                    reorder_colors.push(colors.get(index_index).unwrap().clone());
+                    break;
                 }
-
-                colors.push([
-                    color.r as f32,
-                    color.g as f32,
-                    color.b as f32,
-                    color.a as f32,
-                ]);
             }
-
-            mesh_builder = mesh_builder.with_colors(&colors);
         }
-
-        for _index_index in 0..object_header.index_count {
-            unsafe {
-                let index_slice = std::slice::from_raw_parts_mut(
-                    &mut index as *mut _ as *mut u8,
-                    index_size,
-                );
-                reader.read_exact(index_slice)?;
-            }
-
-            indices.push(index.0);
-        }
+        assert_eq!(reorder_colors.len(), vertices.len());
+        mesh_builder = mesh_builder.with_colors(&reorder_colors);
     }
 
-    let mut rearranged_vertices: Vec<[f32; 3]> = Vec::with_capacity(indices.len());
-    for index in &indices {
-        let index = (*index) as usize;
-        let vertex: [f32; 3] = vertices.get(index).unwrap().clone();
-        rearranged_vertices.push(vertex.clone());
-    }
+    mesh_builder = mesh_builder.with_indices(&indices);
 
-    Ok(mesh_builder.with_vertices(&rearranged_vertices))
+    Ok(mesh_builder.build()?)
 }

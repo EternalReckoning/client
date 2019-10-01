@@ -1,12 +1,17 @@
+use failure::Error;
+use failure::format_err;
+
 #[derive(Clone, Debug)]
 pub struct Mesh {
     vertices: Vec<[f32; 3]>,
     colors: Option<Vec<[f32; 4]>>,
+    pub indices: Option<Vec<u32>>,
 }
 
 pub struct MeshBuilder {
     vertices: Option<Vec<[f32; 3]>>,
     colors: Option<Vec<[f32; 4]>>,
+    indices: Option<Vec<u32>>,
 }
 
 impl Mesh {
@@ -44,6 +49,7 @@ impl MeshBuilder {
         MeshBuilder {
             vertices: None,
             colors: None,
+            indices: None,
         }
     }
 
@@ -58,6 +64,7 @@ impl MeshBuilder {
 
         self
     }
+
     pub fn with_colors(
         mut self, colors: &[[f32; 4]]
     ) -> MeshBuilder {
@@ -70,14 +77,28 @@ impl MeshBuilder {
         self
     }
 
-    pub fn build(self) -> Result<Mesh, ()> {
+    pub fn with_indices(
+        mut self, indices: &[u32]
+    ) -> MeshBuilder {
+        let mut index_vec = Vec::with_capacity(indices.len());
+        for index in indices {
+            index_vec.push(*index);
+        }
+        self.indices = Some(index_vec);
+
+        self
+    }
+
+
+    pub fn build(self) -> Result<Mesh, Error> {
         if self.vertices.is_none() {
-            return Err(());
+            return Err(format_err!("cannot build a mesh without vertex data"));
         }
 
         Ok(Mesh {
            vertices: self.vertices.unwrap(),
-           colors: self.colors, 
+           colors: self.colors,
+           indices: self.indices,
         })
     }
 }
