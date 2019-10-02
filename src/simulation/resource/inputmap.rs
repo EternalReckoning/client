@@ -11,7 +11,7 @@ pub struct InputMap {
 
 impl InputMap {
     pub fn set(&mut self, input: InputTypes, value: bool) {
-        log::trace!("Input state [{:?}]: {}", input, value);
+        log::debug!("Input state [{:?}]: {}", input, value);
         let field = match input {
             InputTypes::MoveForward => &mut self.move_forward,
             InputTypes::MoveBackward => &mut self.move_backward,

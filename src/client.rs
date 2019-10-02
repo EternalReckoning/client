@@ -80,7 +80,7 @@ fn run(
                     *control_flow = winit::event_loop::ControlFlow::Exit;
                 },
                 winit::event::WindowEvent::KeyboardInput { input, .. } => {
-                    log::debug!(
+                    log::trace!(
                         "Keyboard input: {} {}",
                         input.scancode,
                         match input.state {
