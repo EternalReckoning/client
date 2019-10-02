@@ -2,7 +2,11 @@
 server-address = "127.0.0.1:6142"
 
 [logging]
-level = "Trace"
+level = "Debug"
 
 [mouse]
 sensitivity = 3.15
+
+[simulation]
+gravity = 0.0075
+jump-force = 0.15

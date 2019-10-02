@@ -57,10 +57,11 @@ fn run(
     let started = std::time::Instant::now();
 
     let mut key_map = std::collections::HashMap::<u32, InputTypes>::new();
-    key_map.insert(17, InputTypes::MoveForward);
-    key_map.insert(30, InputTypes::MoveLeft);
-    key_map.insert(31, InputTypes::MoveBackward);
-    key_map.insert(32, InputTypes::MoveRight);
+    key_map.insert(config.key_map.move_forward, InputTypes::MoveForward);
+    key_map.insert(config.key_map.move_left, InputTypes::MoveLeft);
+    key_map.insert(config.key_map.move_backward, InputTypes::MoveBackward);
+    key_map.insert(config.key_map.move_right, InputTypes::MoveRight);
+    key_map.insert(config.key_map.move_up, InputTypes::MoveUp);
 
     let mut frame = 0u64;
     let mut period = started;
@@ -79,6 +80,15 @@ fn run(
                     *control_flow = winit::event_loop::ControlFlow::Exit;
                 },
                 winit::event::WindowEvent::KeyboardInput { input, .. } => {
+                    log::debug!(
+                        "Keyboard input: {} {}",
+                        input.scancode,
+                        match input.state {
+                            winit::event::ElementState::Pressed => "pressed",
+                            winit::event::ElementState::Released => "released",
+                        }
+                    );
+
                     if input.scancode == 1 {
                         *control_flow = winit::event_loop::ControlFlow::Exit;
                     }
@@ -263,8 +273,9 @@ pub fn main(config: config::Config) -> Result<(), Error> {
     );
 
     let (main_update_tx, main_update_rx) = channel();
+    let sim_config = config.simulation.clone();
     thread::spawn(move || {
-        let mut game = build_simulation(vec![main_update_tx, net_update_tx]);
+        let mut game = build_simulation(sim_config, vec![main_update_tx, net_update_tx]);
         game.run(event_rx, tick_length);
     });
 

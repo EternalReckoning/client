@@ -3,6 +3,7 @@ pub enum Event {
     NetworkEvent,
 }
 
+#[derive(Debug)]
 pub enum InputEvent {
     KeyUp(crate::input::InputTypes),
     KeyDown(crate::input::InputTypes),

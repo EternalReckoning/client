@@ -3,8 +3,10 @@ use specs::prelude::*;
 use crate::input::MouseEuler;
 use crate::simulation::{
     component::{
+        Jump,
         Movement,
         Position,
+        Velocity,
     },
     resource::InputMap,
 };
@@ -16,14 +18,21 @@ impl<'a> System<'a> for PlayerMovement {
         Read<'a, InputMap>,
         Read<'a, MouseEuler>,
         ReadStorage<'a, Movement>,
+        ReadStorage<'a, Jump>,
         WriteStorage<'a, Position>,
+        WriteStorage<'a, Velocity>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (input, mouse_euler, mov, mut pos) = data;
+        let (input, mouse_euler, mov, jump, mut pos, mut vel) = data;
 
-        if !input.move_forward && !input.move_backward && !input.move_left && !input.move_right {
-            return;
+        if input.move_up {
+            for (jump, pos, vel) in (&jump, &pos, &mut vel).join() {
+                if pos.0.y == 0.0 {
+                    println!("JUMP");
+                    vel.0.y -= jump.force;
+                }
+            }
         }
 
         let mut movement = nalgebra::Vector3::<f64>::new(0.0, 0.0, 0.0);
@@ -40,17 +49,20 @@ impl<'a> System<'a> for PlayerMovement {
             movement += nalgebra::Vector3::x();
         }
 
-        movement.normalize_mut();
-        
-        let rotation = nalgebra::Rotation3::from_axis_angle(
-            &nalgebra::Vector3::<f64>::y_axis(),
-            mouse_euler.yaw
-        );
+        // normalizing <0, 0, 0> would produce <NaN, NaN, NaN>, we'd rather not...
+        if movement.x != 0.0 || movement.y != 0.0 || movement.z != 0.0 {
+            movement.normalize_mut();
+            
+            let rotation = nalgebra::Rotation3::from_axis_angle(
+                &nalgebra::Vector3::<f64>::y_axis(),
+                mouse_euler.yaw
+            );
 
-        movement = rotation.transform_vector(&movement);
+            movement = rotation.transform_vector(&movement);
 
-        for (mov, pos) in (&mov, &mut pos).join() {
-            pos.0 += movement * mov.speed;
+            for (mov, pos) in (&mov, &mut pos).join() {
+                pos.0 += movement * mov.speed;
+            }
         }
     }
 }
