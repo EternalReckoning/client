@@ -11,6 +11,7 @@ pub struct UI {
 
 #[derive(Debug)]
 pub struct Object {
+    pub id: Option<uuid::Uuid>,
     pub model: u64,
     pub position: nalgebra::Transform3<f32>,
 }

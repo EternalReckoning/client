@@ -5,6 +5,7 @@ use specs::{
     WorldExt,
     world::Builder,
 };
+use futures::sync::mpsc::UnboundedSender;
 
 use crate::input::MouseEuler;
 use super::event::{
@@ -15,6 +16,7 @@ use super::component::{
     Jump,
     Movement,
     Position,
+    ServerID,
     Velocity,
 };
 use super::resource::InputMap;
@@ -23,6 +25,7 @@ use super::system::{
     Physics,
     PlayerMovement,
     UpdateSender,
+    UpdateWorld,
 };
 
 use eternalreckoning_core::simulation::Simulation;
@@ -45,14 +48,18 @@ impl Default for SimulationConfig {
     }
 }
 
-pub fn build_simulation<'a, 'b>(config: SimulationConfig, update_tx: Vec<Sender<Update>>)
-    -> Simulation<'a, 'b, Event>
+pub fn build_simulation<'a, 'b>(
+    config: SimulationConfig,
+    update_tx: Sender<Update>,
+    net_update_tx: UnboundedSender<Update>,
+) -> Simulation<'a, 'b, Event>
 {
     let mut world = World::new();
 
     world.register::<Jump>();
     world.register::<Movement>();
     world.register::<Position>();
+    world.register::<ServerID>();
     world.register::<Velocity>();
 
     world.insert(InputMap::default());
@@ -69,7 +76,8 @@ pub fn build_simulation<'a, 'b>(config: SimulationConfig, update_tx: Vec<Sender<
         .with(UpdateInputs, "update_inputs", &[])
         .with(PlayerMovement, "player_movement", &["update_inputs"])
         .with(Physics::new(config.gravity), "physics", &["player_movement"])
-        .with(UpdateSender::new(update_tx), "update_sender", &["player_movement", "physics"])
+        .with(UpdateSender::new(update_tx, net_update_tx), "update_sender", &["player_movement", "physics"])
+        .with(UpdateWorld, "update_world", &[])
         .build();
 
     Simulation::new(dispatcher, world)

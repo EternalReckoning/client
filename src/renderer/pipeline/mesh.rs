@@ -103,6 +103,7 @@ pub struct TriangleRenderPipeline<B: hal::Backend> {
     align: u64,
     buffer: rendy::resource::Escape<rendy::resource::Buffer<B>>,
     sets: Vec<rendy::resource::Escape<rendy::resource::DescriptorSet<B>>>,
+    object_count: usize,
 }
 
 impl<B> SimpleGraphicsPipelineDesc<B, Scene> for TriangleRenderPipelineDesc
@@ -147,7 +148,7 @@ where
         ctx: &rendy::graph::GraphContext<B>,
         factory: &mut Factory<B>,
         _queue: rendy::command::QueueId,
-        _scene: &Scene,
+        scene: &Scene,
         buffers: Vec<rendy::graph::NodeBuffer>,
         images: Vec<rendy::graph::NodeImage>,
         set_layouts: &[rendy::resource::Handle<rendy::resource::DescriptorSetLayout<B>>],
@@ -194,7 +195,12 @@ where
             }
         }
 
-        Ok(TriangleRenderPipeline { align, buffer, sets })
+        Ok(TriangleRenderPipeline {
+            align,
+            buffer,
+            sets,
+            object_count: scene.objects.len(),
+        })
     }
 }
 
@@ -299,7 +305,11 @@ where
             }
         }
 
-        rendy::graph::render::PrepareResult::DrawReuse
+        if scene.objects.len() != self.object_count {
+            rendy::graph::render::PrepareResult::DrawRecord
+        } else {
+            rendy::graph::render::PrepareResult::DrawReuse
+        }
     }
 
     fn draw(

@@ -1,9 +1,7 @@
-use std::sync::mpsc::{
-    Receiver,
-    Sender,
-};
+use std::sync::mpsc::Sender;
 
 use failure::Error;
+use futures::sync::mpsc;
 use tokio::io::{
     ReadHalf,
     WriteHalf,
@@ -25,6 +23,7 @@ use eternalreckoning_core::net::{
 use crate::simulation::{
     self,
     event::{
+        self,
         Event,
         Update,
     },
@@ -38,9 +37,15 @@ enum ReadConnectionState {
 struct ReadConnection {
     frames: FramedRead<ReadHalf<TcpStream>, EternalReckoningCodec>,
     state: ReadConnectionState,
+    event_tx: Sender<Event>,
 }
 
-pub fn connect(address: &String, update_rx: Receiver<Update>, update_tx: Sender<Event>) {
+pub fn connect(
+    address: &String,
+    update_rx: mpsc::UnboundedReceiver<Update>,
+    event_tx: Sender<Event>,
+)
+{
     let addr = address.parse().unwrap();
 
     let client = TcpStream::connect(&addr)
@@ -50,7 +55,7 @@ pub fn connect(address: &String, update_rx: Receiver<Update>, update_tx: Sender<
             let (reader, writer) = stream.split();
 
             let framed_reader = FramedRead::new(reader, EternalReckoningCodec);
-            let read_connection = ReadConnection::new(framed_reader)
+            let read_connection = ReadConnection::new(framed_reader, event_tx)
                 .map_err(|err| {
                     log::error!("Receive failed: {:?}", err);
                 });
@@ -71,11 +76,14 @@ pub fn connect(address: &String, update_rx: Receiver<Update>, update_tx: Sender<
 }
 
 impl ReadConnection {
-    pub fn new(frames: FramedRead<ReadHalf<TcpStream>, EternalReckoningCodec>)
-        -> ReadConnection
+    pub fn new(
+        frames: FramedRead<ReadHalf<TcpStream>, EternalReckoningCodec>,
+        event_tx: Sender<Event>
+    ) -> ReadConnection
     {
         ReadConnection {
             frames,
+            event_tx,
             state: ReadConnectionState::AwaitConnectionResponse,
         }
     }
@@ -98,6 +106,31 @@ impl ReadConnection {
 
         Ok(())
     }
+
+    fn process_data(&mut self, packet: &Operation)
+        -> Result<(), Error> {
+        match packet {
+            Operation::SvUpdateWorld(data) => {
+                let mut updates = Vec::with_capacity(data.updates.len());
+                for update in &data.updates {
+                    updates.push(event::EntityUpdate {
+                        uuid: update.uuid,
+                        position: update.position,
+                    });
+                }
+
+                self.event_tx.send(Event::NetworkEvent(
+                    event::NetworkEvent::WorldUpdate(
+                        event::WorldUpdate { updates }
+                    )
+                ));
+            },
+            _ => {
+                log::warn!("Unrecognized server message received, ignoring");
+            }
+        };
+        Ok(())
+    }
 }
 
 impl Future for ReadConnection {
@@ -107,14 +140,18 @@ impl Future for ReadConnection {
     fn poll(&mut self) -> Poll<(), Error> {
         while let Async::Ready(frame) = self.frames.poll()? {
             if let Some(packet) = frame {
+                log::trace!("Packet: {}", &packet);
                 match self.state {
                     ReadConnectionState::AwaitConnectionResponse => {
                         self.await_connection_response(&packet)?;
                     },
-                    _ => (),
+                    ReadConnectionState::Connected => {
+                        self.process_data(&packet)?;
+                    },
                 };
             } else {
                 // EOF
+                log::warn!("Disconnected from server");
                 return Ok(Async::Ready(()));
             }
         }
@@ -131,14 +168,14 @@ enum WriteConnectionState {
 
 struct WriteConnection {
     frames: FramedWrite<WriteHalf<TcpStream>, EternalReckoningCodec>,
-    update_rx: Receiver<Update>,
+    update_rx: mpsc::UnboundedReceiver<Update>,
     state: WriteConnectionState,
 }
 
 impl WriteConnection {
     pub fn new(
         frames: FramedWrite<WriteHalf<TcpStream>, EternalReckoningCodec>,
-        update_rx: Receiver<Update>,
+        update_rx: mpsc::UnboundedReceiver<Update>,
     ) -> WriteConnection
     {
         WriteConnection {
@@ -172,9 +209,8 @@ impl Future for WriteConnection {
                     self.state = WriteConnectionState::Connected;
                 },
                 WriteConnectionState::Connected => {
-                    // FIXME: blocking io call
-                    match self.update_rx.recv() {
-                        Ok(update) => {
+                    match self.update_rx.poll() {
+                        Ok(Async::Ready(Some(update))) => {
                             match update.event {
                                 simulation::event::UpdateEvent::PositionUpdate(data) => {
                                     self.send(Operation::ClMoveSetPosition(
@@ -186,8 +222,11 @@ impl Future for WriteConnection {
                             }
                         },
                         Err(err) => {
-                            log::error!("Failed to read update channel: {:?}", err);
-                            return Ok(Async::Ready(()))
+                            log::warn!("Update channel closed: {:?}", err);
+                            return Ok(Async::Ready(()));
+                        }
+                        _ => {
+                            return Ok(Async::NotReady);
                         },
                     };
                 },

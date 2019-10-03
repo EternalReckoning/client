@@ -29,7 +29,6 @@ impl<'a> System<'a> for PlayerMovement {
         if input.move_up {
             for (jump, pos, vel) in (&jump, &pos, &mut vel).join() {
                 if pos.0.y == 0.0 {
-                    println!("JUMP");
                     vel.0.y -= jump.force;
                 }
             }

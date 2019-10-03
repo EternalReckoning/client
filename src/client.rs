@@ -7,6 +7,7 @@ use std::sync::mpsc::{
 };
 
 use failure::Error;
+use futures::sync::mpsc::unbounded;
 use rendy::{
     factory::Factory,
     wsi::winit,
@@ -116,9 +117,33 @@ fn run(
                     let update = update_rx.try_recv();
                     match update {
                         Ok(e) => {
-                            if let event::UpdateEvent::PositionUpdate(event::PositionUpdate { position }) = e.event {
-                                camera_pos = position;
-                            }
+                            let event::UpdateEvent::PositionUpdate(event::PositionUpdate { uuid, position }) = e.event;
+                            match uuid {
+                                Some(uuid) => {
+                                    let position = nalgebra::Transform3::<f32>::identity() * 
+                                        nalgebra::Translation3::new(
+                                            position.x as f32,
+                                            position.y as f32,
+                                            position.z as f32
+                                        );
+                                    let mut found = false;
+                                    for object in &mut scene.objects {
+                                        if object.id.is_some() && object.id.unwrap() == uuid {
+                                            found = true;
+                                            object.position = position;
+                                            break;
+                                        }
+                                    }
+                                    if !found {
+                                        scene.objects.push(renderer::scene::Object {
+                                            id: Some(uuid),
+                                            model: 1,
+                                            position
+                                        });
+                                    }
+                                },
+                                None => camera_pos = position,
+                            };
                         },
                         Err(_) => break,
                     }
@@ -217,26 +242,31 @@ pub fn main(config: config::Config) -> Result<(), Error> {
         ],
         objects: vec![
             renderer::scene::Object {
+                id: None,
                 model: 0,
                 position: nalgebra::Transform3::identity() *
                     nalgebra::Translation3::new(0.0, 0.0, 0.0),
             },
             renderer::scene::Object {
+                id: None,
                 model: 1,
                 position: nalgebra::Transform3::identity() *
                     nalgebra::Translation3::new(0.0, 0.0, 0.0),
             },
             renderer::scene::Object {
+                id: None,
                 model: 2,
                 position: nalgebra::Transform3::identity() *
                     nalgebra::Translation3::new(-5.0, 0.0, 7.0),
             },
             renderer::scene::Object {
+                id: None,
                 model: 2,
                 position: nalgebra::Transform3::identity() *
-                    nalgebra::Translation3::new(0.0, 0.0, 7.0),
+                    nalgebra::Translation3::new(0.0, 0.0, -7.0),
             },
             renderer::scene::Object {
+                id: None,
                 model: 2,
                 position: nalgebra::Transform3::identity() *
                     nalgebra::Translation3::new(5.0, 0.0, 7.0),
@@ -252,7 +282,7 @@ pub fn main(config: config::Config) -> Result<(), Error> {
     );
 
     let (event_tx, event_rx) = channel();
-    let (net_update_tx, net_update_rx) = channel();
+    let (net_update_tx, net_update_rx) = unbounded();
 
     log::info!("Initializing networking");
     
@@ -275,7 +305,7 @@ pub fn main(config: config::Config) -> Result<(), Error> {
     let (main_update_tx, main_update_rx) = channel();
     let sim_config = config.simulation.clone();
     thread::spawn(move || {
-        let mut game = build_simulation(sim_config, vec![main_update_tx, net_update_tx]);
+        let mut game = build_simulation(sim_config, main_update_tx, net_update_tx);
         game.run(event_rx, tick_length);
     });
 
