@@ -224,6 +224,7 @@ pub fn main(config: config::Config) -> Result<(), Error> {
             renderer::Model::new("assets/floor.erm".to_string()),
             renderer::Model::new("assets/marker.erm".to_string()),
             renderer::Model::new("assets/pillar.erm".to_string()),
+            renderer::Model::new("assets/elf-spear.erm".to_string()),
         ],
         objects: vec![
             renderer::scene::Object {
@@ -242,19 +243,19 @@ pub fn main(config: config::Config) -> Result<(), Error> {
                 id: None,
                 model: 2,
                 position: nalgebra::Transform3::identity() *
-                    nalgebra::Translation3::new(-5.0, 0.0, 7.0),
+                    nalgebra::Translation3::new(-5.5, 0.0, -7.0),
             },
             renderer::scene::Object {
                 id: None,
                 model: 2,
                 position: nalgebra::Transform3::identity() *
-                    nalgebra::Translation3::new(0.0, 0.0, -7.0),
+                    nalgebra::Translation3::new(5.5, 0.0, -7.0),
             },
             renderer::scene::Object {
                 id: None,
-                model: 2,
+                model: 3,
                 position: nalgebra::Transform3::identity() *
-                    nalgebra::Translation3::new(5.0, 0.0, 7.0),
+                    nalgebra::Translation3::new(0.0, 0.0, -9.0),
             },
         ],
     };

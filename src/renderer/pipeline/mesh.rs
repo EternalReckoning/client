@@ -40,7 +40,7 @@ lazy_static::lazy_static! {
 }
 
 const MAX_VERTEX_COUNT: usize = 512;
-const MAX_INDEX_COUNT: usize = 1024;
+const MAX_INDEX_COUNT: usize = 4096;
 const MAX_OBJECT_COUNT: usize = 32;
 
 const UNIFORM_SIZE: u64 = std::mem::size_of::<UniformArgs>() as u64;
@@ -273,6 +273,8 @@ where
         }
 
         log::trace!("Vertices: {}; Indices: {}", offset_v, offset_i);
+        assert!(offset_v < MAX_VERTEX_COUNT as u32);
+        assert!(offset_i < MAX_INDEX_COUNT as u32);
 
         for object_i in 0..scene.objects.len() {
             let object = &scene.objects[object_i];

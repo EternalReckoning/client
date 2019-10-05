@@ -62,15 +62,19 @@ pub fn meshes_from_erm(path: &str) -> Result<Vec<Mesh>, failure::Error> {
     }
 
     let mut meshes = Vec::new();
+    let mut index_offset = 0;
     for _object_index in 0..header.object_count {
-        let mesh = mesh_from_erm(&mut reader)?;
+        let mesh = mesh_from_erm(&mut reader, index_offset)?;
+        index_offset += mesh.len();
         meshes.push(mesh);
     }
 
     Ok(meshes)
 }
 
-fn mesh_from_erm(reader: &mut std::io::BufReader<std::fs::File>) -> Result<Mesh, failure::Error> {
+fn mesh_from_erm(reader: &mut std::io::BufReader<std::fs::File>, index_offset: u32)
+    -> Result<Mesh, failure::Error>
+{
     let mut mesh_builder = MeshBuilder::new();
 
     let mut object_header: ObjectHeader = unsafe { std::mem::zeroed() };
@@ -149,7 +153,7 @@ fn mesh_from_erm(reader: &mut std::io::BufReader<std::fs::File>) -> Result<Mesh,
         let mut reorder_colors = Vec::with_capacity(object_header.vertex_count as usize);
         for index in 0..(object_header.vertex_count as u32) {
             for index_index in 0..indices.len() {
-                if *indices.get(index_index).unwrap() == index {
+                if *indices.get(index_index).unwrap() == index + index_offset {
                     reorder_colors.push(colors.get(index_index).unwrap().clone());
                     break;
                 }
