@@ -1,7 +1,7 @@
 use failure::Error;
 
 use super::Mesh;
-use crate::loaders::meshes_from_wc1;
+use crate::loaders::meshes_from_erm;
 
 #[derive(Clone, Debug)]
 pub struct Model {
@@ -28,7 +28,7 @@ impl Model {
     }
 
     pub fn load(&mut self) -> Result<(), Error> {
-        let meshes = meshes_from_wc1(&self.path[..])?;
+        let meshes = meshes_from_erm(&self.path[..])?;
         for mesh in meshes {
             self.add_mesh(nalgebra::Point3::new(0.0, 0.0, 0.0), mesh);
         }

@@ -52,12 +52,12 @@ impl<'a> System<'a> for UpdateSender {
                 ),
             };
 
-            self.sender.send(event.clone()).map_err(|err| {
+            self.sender.send(event.clone()).unwrap_or_else(|err| {
                 log::error!("failed to send update event: {}", err);
             });
 
             if id.get(ent).is_none() {
-                self.net_sender.send(event).map_err(|err| {
+                self.net_sender.send(event).unwrap_or_else(|err| {
                     log::error!("failed to send update event: {}", err);
                 });
             }

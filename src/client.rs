@@ -221,9 +221,9 @@ pub fn main(config: config::Config) -> Result<(), Error> {
         camera: renderer::scene::Camera::new(aspect),
         ui: renderer::scene::UI::new(aspect),
         models: vec![
-            renderer::Model::new("assets/floor.wc1".to_string()),
-            renderer::Model::new("assets/marker.wc1".to_string()),
-            renderer::Model::new("assets/pillar.wc1".to_string()),
+            renderer::Model::new("assets/floor.erm".to_string()),
+            renderer::Model::new("assets/marker.erm".to_string()),
+            renderer::Model::new("assets/pillar.erm".to_string()),
         ],
         objects: vec![
             renderer::scene::Object {

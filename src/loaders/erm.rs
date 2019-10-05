@@ -44,7 +44,7 @@ struct VertexColor {
 #[repr(C)]
 struct Index(u64);
 
-pub fn meshes_from_wc1(path: &str) -> Result<Vec<Mesh>, failure::Error> {
+pub fn meshes_from_erm(path: &str) -> Result<Vec<Mesh>, failure::Error> {
     let mut reader = std::io::BufReader::new(
         std::fs::File::open(path)
             .map_err(|_| format_err!("cannot load model: {}", path))?
@@ -63,14 +63,14 @@ pub fn meshes_from_wc1(path: &str) -> Result<Vec<Mesh>, failure::Error> {
 
     let mut meshes = Vec::new();
     for _object_index in 0..header.object_count {
-        let mesh = mesh_from_wc1(&mut reader)?;
+        let mesh = mesh_from_erm(&mut reader)?;
         meshes.push(mesh);
     }
 
     Ok(meshes)
 }
 
-fn mesh_from_wc1(reader: &mut std::io::BufReader<std::fs::File>) -> Result<Mesh, failure::Error> {
+fn mesh_from_erm(reader: &mut std::io::BufReader<std::fs::File>) -> Result<Mesh, failure::Error> {
     let mut mesh_builder = MeshBuilder::new();
 
     let mut object_header: ObjectHeader = unsafe { std::mem::zeroed() };

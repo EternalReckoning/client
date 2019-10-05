@@ -1,3 +1,3 @@
-mod wc1;
+mod erm;
 
-pub use wc1::meshes_from_wc1;
+pub use erm::meshes_from_erm;
