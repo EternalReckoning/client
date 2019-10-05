@@ -16,7 +16,6 @@ use rendy::{
 use crate::{
     input,
     input::InputTypes,
-    loaders,
     networking,
     renderer,
     simulation::{
@@ -27,7 +26,7 @@ use crate::{
     window::Window,
 };
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct ClientConfig {
     pub server_address: String,
@@ -189,6 +188,13 @@ fn run(
             _ => {},
         }
 
+        // TODO: do io outside the rendering thread
+        for model in &mut scene.models {
+            if model.len() == 0 {
+                model.load().unwrap_or_else(|err| log::error!("Error: {}", err));
+            }
+        }
+
         if *control_flow == winit::event_loop::ControlFlow::Exit && graph.is_some() {
             log::info!("Exiting...");
             graph.take().unwrap().dispose(&mut factory, &scene);
@@ -215,30 +221,9 @@ pub fn main(config: config::Config) -> Result<(), Error> {
         camera: renderer::scene::Camera::new(aspect),
         ui: renderer::scene::UI::new(aspect),
         models: vec![
-            loaders::model_from_wc1(
-                std::io::BufReader::new(
-                    std::fs::File::open(concat!(
-                        env!("CARGO_MANIFEST_DIR"),
-                        "/assets/floor.wc1"
-                    ))?
-                )
-            )?,
-            loaders::model_from_wc1(
-                std::io::BufReader::new(
-                    std::fs::File::open(concat!(
-                        env!("CARGO_MANIFEST_DIR"),
-                        "/assets/marker.wc1"
-                    ))?
-                )
-            )?,
-            loaders::model_from_wc1(
-                std::io::BufReader::new(
-                    std::fs::File::open(concat!(
-                        env!("CARGO_MANIFEST_DIR"),
-                        "/assets/pillar.wc1"
-                    ))?
-                )
-            )?,
+            renderer::Model::new("assets/floor.wc1".to_string()),
+            renderer::Model::new("assets/marker.wc1".to_string()),
+            renderer::Model::new("assets/pillar.wc1".to_string()),
         ],
         objects: vec![
             renderer::scene::Object {

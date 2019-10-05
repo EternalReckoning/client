@@ -150,12 +150,9 @@ where
         assert_eq!(set_layouts.len(), 1);
 
         let image_reader = BufReader::new(
-            File::open(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/assets/icon_attack.png"
-            ))
+            File::open("assets/icon_attack.png")
             .map_err(|e| {
-                log::error!("Unable to open {}: {:?}", "/assets/icon_attack.png", e);
+                log::error!("Unable to open {}: {:?}", "assets/icon_attack.png", e);
                 hal::pso::CreationError::Other
             })?
         );

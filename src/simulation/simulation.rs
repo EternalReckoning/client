@@ -32,7 +32,7 @@ use super::system::{
 
 use eternalreckoning_core::simulation::Simulation;
 
-#[derive(Clone, serde::Deserialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct SimulationConfig {
     pub gravity: f64,

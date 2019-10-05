@@ -12,7 +12,7 @@ pub struct MouseSensitivity {
     yaw: f64,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct MouseConfig {
     pub sensitivity: f64,

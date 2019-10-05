@@ -7,7 +7,7 @@ pub enum InputTypes {
     MoveUp,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct KeyMapConfig {
     pub move_forward: u32,

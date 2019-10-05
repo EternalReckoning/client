@@ -1,10 +1,10 @@
 use std::io::Read;
 
 use bitflags::bitflags;
+use failure::format_err;
 
 use crate::renderer::{
     Mesh,
-    Model,
     mesh::MeshBuilder,
 };
 
@@ -44,7 +44,12 @@ struct VertexColor {
 #[repr(C)]
 struct Index(u64);
 
-pub fn model_from_wc1(mut reader: std::io::BufReader<std::fs::File>) -> Result<Model, failure::Error> {
+pub fn meshes_from_wc1(path: &str) -> Result<Vec<Mesh>, failure::Error> {
+    let mut reader = std::io::BufReader::new(
+        std::fs::File::open(path)
+            .map_err(|_| format_err!("cannot load model: {}", path))?
+    );
+
     let mut header: Header = unsafe { std::mem::zeroed() };
     let header_size = std::mem::size_of::<Header>();
 
@@ -56,16 +61,13 @@ pub fn model_from_wc1(mut reader: std::io::BufReader<std::fs::File>) -> Result<M
         reader.read_exact(header_slice)?;
     }
 
-    let mut model = Model::new();
-
+    let mut meshes = Vec::new();
     for _object_index in 0..header.object_count {
         let mesh = mesh_from_wc1(&mut reader)?;
-        let position = nalgebra::Point3::<f32>::new(0.0, 0.0, 0.0);
-
-        model.add_mesh(position, mesh);
+        meshes.push(mesh);
     }
 
-    Ok(model)
+    Ok(meshes)
 }
 
 fn mesh_from_wc1(reader: &mut std::io::BufReader<std::fs::File>) -> Result<Mesh, failure::Error> {

@@ -1,7 +1,11 @@
+use failure::Error;
+
 use super::Mesh;
+use crate::loaders::meshes_from_wc1;
 
 #[derive(Clone, Debug)]
 pub struct Model {
+    path: String,
     meshes: Vec<ModelMesh>,
 }
 
@@ -12,14 +16,23 @@ pub struct ModelMesh {
 }
 
 impl Model {
-    pub fn new() -> Model {
+    pub fn new(path: String) -> Model {
         Model {
+            path,
             meshes: Vec::new(),
         }
     }
     
     pub fn len(&self) -> usize {
         self.meshes.len()
+    }
+
+    pub fn load(&mut self) -> Result<(), Error> {
+        let meshes = meshes_from_wc1(&self.path[..])?;
+        for mesh in meshes {
+            self.add_mesh(nalgebra::Point3::new(0.0, 0.0, 0.0), mesh);
+        }
+        Ok(())
     }
     
     pub fn get(&self, index: usize) -> Option<&Mesh> {

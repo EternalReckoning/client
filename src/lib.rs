@@ -42,7 +42,13 @@ fn get_configuration(bootstrap: Bootstrap)
     -> Result<Config<util::config::Config>, Error>
 {
     match bootstrap.config {
-        Some(path) => Ok(Config::<util::config::Config>::from_file(&path)?),
+        Some(path) => {
+            Config::<util::config::Config>::from_file(&path)
+                .or_else(|_| {
+                    Config::<util::config::Config>::write_default(&path)
+                })
+                .map_err(|e| { e.into() })
+        },
         None => Err(format_err!("no configuration file path provided")),
     }
 }
