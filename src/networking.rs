@@ -23,7 +23,6 @@ use eternalreckoning_core::net::{
 use crate::simulation::{
     self,
     event::{
-        self,
         Event,
         Update,
     },
@@ -110,23 +109,11 @@ impl ReadConnection {
     fn process_data(&mut self, packet: &Operation)
         -> Result<(), Error> {
         match packet {
-            Operation::SvUpdateWorld(data) => {
-                let mut updates = Vec::with_capacity(data.updates.len());
-                for update in &data.updates {
-                    updates.push(event::EntityUpdate {
-                        uuid: update.uuid,
-                        position: update.position,
-                    });
-                }
-
-                self.event_tx.send(Event::NetworkEvent(
-                    event::NetworkEvent::WorldUpdate(
-                        event::WorldUpdate { updates }
-                    )
-                ));
+            Operation::SvUpdateWorld(_) => {
+                self.event_tx.send(Event::NetworkEvent(packet.clone()))?;
             },
             _ => {
-                log::warn!("Unrecognized server message received, ignoring");
+                log::warn!("Unexpected server message received, ignoring");
             }
         };
         Ok(())

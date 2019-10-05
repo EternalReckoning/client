@@ -39,8 +39,8 @@ lazy_static::lazy_static! {
     static ref SHADER_REFLECTION: rendy::shader::SpirvReflection = SHADERS.reflect().unwrap();
 }
 
-const MAX_VERTEX_COUNT: usize = 4096;
-const MAX_INDEX_COUNT: usize = 4096;
+const MAX_VERTEX_COUNT: usize = 512;
+const MAX_INDEX_COUNT: usize = 1024;
 const MAX_OBJECT_COUNT: usize = 32;
 
 const UNIFORM_SIZE: u64 = std::mem::size_of::<UniformArgs>() as u64;
@@ -271,6 +271,8 @@ where
                 offset_i += mesh.indices.as_ref().unwrap().len() as u32;
             }
         }
+
+        log::trace!("Vertices: {}; Indices: {}", offset_v, offset_i);
 
         for object_i in 0..scene.objects.len() {
             let object = &scene.objects[object_i];

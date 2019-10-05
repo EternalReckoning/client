@@ -8,5 +8,5 @@ level = "Debug"
 sensitivity = 3.15
 
 [simulation]
-gravity = 0.0075
-jump-force = 0.15
+gravity = 0.008
+jump-force = 0.1725

@@ -13,8 +13,10 @@ use super::event::{
     Update,
 };
 use super::component::{
+    Health,
     Jump,
     Movement,
+    Name,
     Position,
     ServerID,
     Velocity,
@@ -56,8 +58,10 @@ pub fn build_simulation<'a, 'b>(
 {
     let mut world = World::new();
 
+    world.register::<Health>();
     world.register::<Jump>();
     world.register::<Movement>();
+    world.register::<Name>();
     world.register::<Position>();
     world.register::<ServerID>();
     world.register::<Velocity>();
@@ -66,6 +70,8 @@ pub fn build_simulation<'a, 'b>(
     world.insert(MouseEuler::default());
 
     world.create_entity()
+        .with(Name("Player".to_string()))
+        .with(Health(100))
         .with(Position(nalgebra::Point3::new(0.0, 0.0, 0.0)))
         .with(Velocity(nalgebra::Vector3::new(0.0, 0.0, 0.0)))
         .with(Movement { speed: config.movement_speed })
