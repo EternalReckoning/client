@@ -57,7 +57,7 @@ impl<'a> System<'a> for UpdateSender {
             });
 
             if id.get(ent).is_none() {
-                self.net_sender.send(event).unwrap_or_else(|err| {
+                self.net_sender.unbounded_send(event).unwrap_or_else(|err| {
                     log::error!("failed to send update event: {}", err);
                 });
             }

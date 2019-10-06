@@ -39,7 +39,7 @@ impl<'a> System<'a> for UpdateWorld {
 
                     if entity.is_none() {
                         entity = Some(entities.create());
-                        id.insert(entity.unwrap(), ServerID(update.uuid));
+                        id.insert(entity.unwrap(), ServerID(update.uuid)).unwrap();
                     }
                     let entity = entity.unwrap();
 
@@ -49,7 +49,7 @@ impl<'a> System<'a> for UpdateWorld {
                                 match hp.get_mut(entity) {
                                     Some(ref mut health) => health.0 = *data,
                                     None => {
-                                        hp.insert(entity, Health(*data));
+                                        hp.insert(entity, Health(*data)).unwrap();
                                     },
                                 }
                             },
@@ -57,7 +57,7 @@ impl<'a> System<'a> for UpdateWorld {
                                 match pos.get_mut(entity) {
                                     Some(ref mut position) => position.0 = *data,
                                     None => {
-                                        pos.insert(entity, Position(*data));
+                                        pos.insert(entity, Position(*data)).unwrap();
                                     },
                                 };
                             },
