@@ -70,6 +70,7 @@ fn run(
     let mouse_sens = input::MouseSensitivity::new(config.mouse.sensitivity);
     let mut mouse_euler = input::MouseEuler::default();
     let mut camera_pos = nalgebra::Point3::<f64>::new(0.0, 0.0, 0.0);
+    let mut mouse_look = false;
 
     window.run(move |event, _, control_flow| {
         *control_flow = winit::event_loop::ControlFlow::Poll;
@@ -95,19 +96,39 @@ fn run(
 
                     if let Some(action) = key_map.get(&input.scancode) {
                         let event = match input.state {
-                            winit::event::ElementState::Pressed => event::InputEvent::KeyDown(*action),
-                            winit::event::ElementState::Released => event::InputEvent::KeyUp(*action),
+                            winit::event::ElementState::Pressed => {
+                                event::InputEvent::KeyDown(*action)
+                            },
+                            winit::event::ElementState::Released => {
+                                event::InputEvent::KeyUp(*action)
+                            },
                         };
                         event_tx.send(event::Event::InputEvent(event)).unwrap();
+                    }
+                },
+                winit::event::WindowEvent::MouseInput { button, state, .. } => {
+                    log::trace!(
+                        "Mouse input: {:?} button {}",
+                        button,
+                        match state {
+                            winit::event::ElementState::Pressed => "pressed",
+                            winit::event::ElementState::Released => "released",
+                        },
+                    );
+
+                    if button == winit::event::MouseButton::Right {
+                        mouse_look = state == winit::event::ElementState::Pressed;
                     }
                 },
                 _ => {},
             },
             winit::event::Event::DeviceEvent { event, .. } => match event {
                 winit::event::DeviceEvent::MouseMotion { delta } => {
-                    mouse_euler.update(delta, &mouse_sens);
-                    let event = event::InputEvent::CameraAngle(mouse_euler.clone());
-                    event_tx.send(event::Event::InputEvent(event)).unwrap();
+                    if mouse_look {
+                        mouse_euler.update(delta, &mouse_sens);
+                        let event = event::InputEvent::CameraAngle(mouse_euler.clone());
+                        event_tx.send(event::Event::InputEvent(event)).unwrap();
+                    }
                 },
                 _ => {},
             },
