@@ -6,7 +6,10 @@ use std::sync::mpsc::{
     Receiver,
 };
 
-use failure::Error;
+use failure::{
+    format_err,
+    Error,
+};
 use futures::sync::mpsc::unbounded;
 use rendy::{
     factory::Factory,
@@ -228,11 +231,12 @@ fn run(
 pub fn main(config: config::Config) -> Result<(), Error> {
     let rendy_config: rendy::factory::Config = Default::default();
     let (mut factory, mut families): (Factory<Backend>, _) =
-        rendy::factory::init(rendy_config).unwrap();
+        rendy::factory::init(rendy_config)
+            .map_err(|err| format_err!("failed to configure graphics device: {:?}", err))?;
 
     log::info!("Creating window...");
 
-    let window = Window::new();
+    let window = Window::new()?;
 
     log::info!("Initializing rendering pipeline...");
 

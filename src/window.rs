@@ -1,3 +1,7 @@
+use failure::{
+    format_err,
+    Error,
+};
 use rendy::wsi::winit;
 
 pub struct Window {
@@ -6,15 +10,15 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn new() -> Window {
+    pub fn new() -> Result<Window, Error> {
         let event_loop = winit::event_loop::EventLoop::new();
 
         let window = winit::window::WindowBuilder::new()
             .with_title("World Client")
             .build(&event_loop)
-            .unwrap();
+            .map_err(|err| format_err!("failed to create window: {:?}", err))?;
 
-        Window { window, event_loop }
+        Ok(Window { window, event_loop })
     }
 
     pub fn get_size(&self) -> winit::dpi::PhysicalSize {

@@ -10,6 +10,8 @@ fn main() {
     };
 
     if let Err(ref e) = eternalreckoning_client::run(bootstrap) {
+        log::error!("Application error: {}", e);
+
         eprintln!("Application error: {}", e);
         eprintln!("Backtrace: {:?}", e.backtrace());
 
