@@ -45,9 +45,7 @@ pub fn connect(
     event_tx: Sender<Event>,
 )
 {
-    let addr = address.parse().unwrap();
-
-    let client = TcpStream::connect(&addr)
+    let client = tokio_dns::TcpStream::connect(&address[..])
         .map(|stream| {
             log::info!("Connected to server");
 

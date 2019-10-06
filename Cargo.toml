@@ -32,4 +32,5 @@ rendy = { git = "https://github.com/amethyst/rendy" }
 serde = { version = "1.0", features = ["derive"] }
 specs = "0.15"
 tokio = "0.1"
+tokio-dns-unofficial = "0.4"
 uuid = "0.7"
