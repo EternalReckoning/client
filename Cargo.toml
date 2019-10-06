@@ -1,6 +1,6 @@
 [package]
 name = "eternalreckoning-client"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Henry Carlson <henry.carlson@gmail.com>"]
 edition = "2018"
 
@@ -17,7 +17,7 @@ x11 = [
 ]
 
 [dependencies]
-eternalreckoning-core = { version = "0.1.1", path = "../core" }
+eternalreckoning-core = { version = "0.1.2", path = "../core" }
 
 bitflags = "1.1"
 bytes = "0.4"
