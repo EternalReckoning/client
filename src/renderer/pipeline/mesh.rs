@@ -50,35 +50,31 @@ const MODEL_SIZE: u64 = (std::mem::size_of::<InstanceArgs>() * MAX_OBJECT_COUNT)
 const INDIRECT_COMMAND_SIZE: u64 = std::mem::size_of::<rendy::command::DrawIndexedCommand>() as u64;
 const INDIRECT_SIZE: u64 = INDIRECT_COMMAND_SIZE * MAX_OBJECT_COUNT as u64;
 
-const fn buffer_frame_size(align: u64) -> u64 {
-    ((UNIFORM_SIZE + VERTEX_SIZE + INDEX_SIZE + MODEL_SIZE + INDIRECT_SIZE - 1) / align + 1) * align
+const fn buffer_frame_size(size: u64, align: u64, index: usize) -> u64 {
+    (((size - 1) / align + 1) * align) * index as u64
 }
 
 const fn uniform_offset(index: usize, align: u64) -> u64 {
-    buffer_frame_size(align) * index as u64
+    buffer_frame_size(UNIFORM_SIZE, align, index)
 }
 
 const fn vertex_offset(index: usize, align: u64, offset: u64) -> u64 {
-    uniform_offset(index, align) +
-        UNIFORM_SIZE +
+    buffer_frame_size(VERTEX_SIZE, align, index) +
         (std::mem::size_of::<rendy::mesh::PosColor>() as u64 * offset)
 }
 
 const fn index_offset(index: usize, align: u64, offset: u64) -> u64 {
-    vertex_offset(index, align, 0) +
-        VERTEX_SIZE +
+    buffer_frame_size(INDEX_SIZE, align, index) +
         (std::mem::size_of::<u32>() as u64 * offset)
 }
 
 const fn models_offset(index: usize, align: u64, offset: u64) -> u64 {
-    index_offset(index, align, 0) +
-        INDEX_SIZE +
+    buffer_frame_size(MODEL_SIZE, align, index) +
         (std::mem::size_of::<InstanceArgs>() as u64 * offset)
 }
 
 const fn indirect_offset(index: usize, align: u64, offset: u64) -> u64 {
-    models_offset(index, align, 0) +
-        MODEL_SIZE +
+    buffer_frame_size(INDIRECT_SIZE, align, index) +
         INDIRECT_COMMAND_SIZE * offset
 }
 
@@ -101,7 +97,11 @@ pub struct TriangleRenderPipelineDesc;
 #[derive(Debug)]
 pub struct TriangleRenderPipeline<B: hal::Backend> {
     align: u64,
-    buffer: rendy::resource::Escape<rendy::resource::Buffer<B>>,
+    uniform_buf: rendy::resource::Escape<rendy::resource::Buffer<B>>,
+    vertex_buf: rendy::resource::Escape<rendy::resource::Buffer<B>>,
+    index_buf: rendy::resource::Escape<rendy::resource::Buffer<B>>,
+    model_buf: rendy::resource::Escape<rendy::resource::Buffer<B>>,
+    indirect_buf: rendy::resource::Escape<rendy::resource::Buffer<B>>,
     sets: Vec<rendy::resource::Escape<rendy::resource::DescriptorSet<B>>>,
     object_count: usize,
 }
@@ -163,13 +163,47 @@ where
             .limits()
             .min_uniform_buffer_offset_alignment;
 
-        let buffer = factory
+        let ubuf = factory
             .create_buffer(
                 rendy::resource::BufferInfo {
-                    size: buffer_frame_size(align) * frames as u64,
-                    usage: hal::buffer::Usage::UNIFORM |
-                        hal::buffer::Usage::VERTEX |
-                        hal::buffer::Usage::INDIRECT,
+                    size: buffer_frame_size(UNIFORM_SIZE, align, frames),
+                    usage: hal::buffer::Usage::UNIFORM,
+                },
+                rendy::memory::Dynamic,
+            )
+            .unwrap();
+        let vbuf = factory
+            .create_buffer(
+                rendy::resource::BufferInfo {
+                    size: buffer_frame_size(VERTEX_SIZE, align, frames),
+                    usage: hal::buffer::Usage::VERTEX,
+                },
+                rendy::memory::Dynamic,
+            )
+            .unwrap();
+        let ibuf = factory
+            .create_buffer(
+                rendy::resource::BufferInfo {
+                    size: buffer_frame_size(INDEX_SIZE, align, frames),
+                    usage: hal::buffer::Usage::INDEX,
+                },
+                rendy::memory::Dynamic,
+            )
+            .unwrap();
+        let mbuf = factory
+            .create_buffer(
+                rendy::resource::BufferInfo {
+                    size: buffer_frame_size(MODEL_SIZE, align, frames),
+                    usage: hal::buffer::Usage::VERTEX,
+                },
+                rendy::memory::Dynamic,
+            )
+            .unwrap();
+        let icmdbuf = factory
+            .create_buffer(
+                rendy::resource::BufferInfo {
+                    size: buffer_frame_size(INDIRECT_SIZE, align, frames),
+                    usage: hal::buffer::Usage::INDIRECT,
                 },
                 rendy::memory::Dynamic,
             )
@@ -186,7 +220,7 @@ where
                     binding: 0,
                     array_offset: 0,
                     descriptors: Some(hal::pso::Descriptor::Buffer(
-                        buffer.raw(),
+                        ubuf.raw(),
                         Some(uniform_offset(index, align))
                             ..Some(uniform_offset(index, align) + UNIFORM_SIZE),
                     )),
@@ -197,7 +231,11 @@ where
 
         Ok(TriangleRenderPipeline {
             align,
-            buffer,
+            uniform_buf: ubuf,
+            vertex_buf: vbuf,
+            index_buf: ibuf,
+            model_buf: mbuf,
+            indirect_buf: icmdbuf,
             sets,
             object_count: scene.objects.len(),
         })
@@ -221,7 +259,7 @@ where
         unsafe {
             factory
                 .upload_visible_buffer(
-                    &mut self.buffer,
+                    &mut self.uniform_buf,
                     uniform_offset(index, self.align),
                     &[UniformArgs {
                         proj: scene.camera.proj.to_homogeneous(),
@@ -252,7 +290,7 @@ where
                 unsafe {
                     factory
                         .upload_visible_buffer(
-                            &mut self.buffer,
+                            &mut self.vertex_buf,
                             vertex_offset(index, self.align, offset_v as u64),
                             mesh_buffer.as_slice(),
                         )
@@ -260,7 +298,7 @@ where
 
                     factory
                         .upload_visible_buffer(
-                            &mut self.buffer,
+                            &mut self.index_buf,
                             index_offset(index, self.align, offset_i as u64),
                             mesh.indices.as_ref().unwrap().clone().as_slice(),
                         )
@@ -285,7 +323,7 @@ where
             unsafe {
                 factory
                     .upload_visible_buffer(
-                        &mut self.buffer,
+                        &mut self.model_buf,
                         models_offset(index, self.align, object_i as u64),
                         &[InstanceArgs {
                             model: object.position,
@@ -295,7 +333,7 @@ where
 
                 factory
                     .upload_visible_buffer(
-                        &mut self.buffer,
+                        &mut self.indirect_buf,
                         indirect_offset(index, self.align, object_i as u64),
                         &[rendy::command::DrawIndexedCommand {
                             index_count: *index_count,
@@ -333,22 +371,22 @@ where
 
             encoder.bind_vertex_buffers(
                 0,
-                std::iter::once((self.buffer.raw(), vertex_offset(index, self.align, 0)))
+                std::iter::once((self.vertex_buf.raw(), vertex_offset(index, self.align, 0)))
             );
 
             encoder.bind_vertex_buffers(
                 1,
-                std::iter::once((self.buffer.raw(), models_offset(index, self.align, 0)))
+                std::iter::once((self.model_buf.raw(), models_offset(index, self.align, 0)))
             );
 
             encoder.bind_index_buffer(
-                self.buffer.raw(),
+                self.index_buf.raw(),
                 index_offset(index, self.align, 0),
                 hal::IndexType::U32,
             );
 
             encoder.draw_indexed_indirect(
-                self.buffer.raw(),
+                self.indirect_buf.raw(),
                 indirect_offset(index, self.align, 0),
                 scene.objects.len() as u32,
                 INDIRECT_COMMAND_SIZE as u32,
