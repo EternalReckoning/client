@@ -21,7 +21,10 @@ use super::component::{
     ServerID,
     Velocity,
 };
-use super::resource::InputMap;
+use super::resource::{
+    InputMap,
+    TickLength,
+};
 use super::system::{
     UpdateInputs,
     Physics,
@@ -43,20 +46,31 @@ pub struct SimulationConfig {
 impl Default for SimulationConfig {
     fn default() -> SimulationConfig {
         SimulationConfig {
-            gravity: 0.0075,
-            movement_speed: 0.1,
-            jump_force: 0.15,
+            gravity: 0.48,
+            movement_speed: 6.0,
+            jump_force: 10.35,
         }
     }
 }
 
 pub fn build_simulation<'a, 'b>(
-    config: SimulationConfig,
+    mut config: SimulationConfig,
     update_tx: Sender<Update>,
     net_update_tx: UnboundedSender<Update>,
+    tick_length: std::time::Duration,
 ) -> Simulation<'a, 'b, Event>
 {
     let mut world = World::new();
+
+    let tick_length = TickLength(tick_length);
+
+    config.gravity = tick_length.scale_to(config.gravity);
+    config.movement_speed = tick_length.scale_to(config.movement_speed);
+    config.jump_force = tick_length.scale_to(config.jump_force);
+
+    world.insert(InputMap::default());
+    world.insert(MouseEuler::default());
+    world.insert(tick_length);
 
     world.register::<Health>();
     world.register::<Jump>();
@@ -65,9 +79,6 @@ pub fn build_simulation<'a, 'b>(
     world.register::<Position>();
     world.register::<ServerID>();
     world.register::<Velocity>();
-
-    world.insert(InputMap::default());
-    world.insert(MouseEuler::default());
 
     world.create_entity()
         .with(Name("Player".to_string()))

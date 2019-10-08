@@ -316,7 +316,12 @@ pub fn main(config: config::Config) -> Result<(), Error> {
     let (main_update_tx, main_update_rx) = channel();
     let sim_config = config.simulation.clone();
     thread::spawn(move || {
-        let mut game = build_simulation(sim_config, main_update_tx, net_update_tx);
+        let mut game = build_simulation(
+            sim_config,
+            main_update_tx,
+            net_update_tx,
+            tick_length
+        );
         game.run(event_rx, tick_length);
     });
 
