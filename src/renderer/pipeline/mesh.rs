@@ -78,14 +78,14 @@ const fn indirect_offset(index: usize, align: u64, offset: u64) -> u64 {
         INDIRECT_COMMAND_SIZE * offset
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[repr(C, align(16))]
 struct UniformArgs {
     proj: nalgebra::Matrix4<f32>,
     view: nalgebra::Matrix4<f32>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[repr(C, align(16))]
 struct InstanceArgs {
     model: nalgebra::Transform3<f32>,

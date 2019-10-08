@@ -55,7 +55,7 @@ const fn vertex_offset(index: usize, align: u64) -> u64 {
     uniform_offset(index, align) + UNIFORM_SIZE
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[repr(C, align(16))]
 struct UniformArgs {
     proj: nalgebra::Matrix4<f32>,
