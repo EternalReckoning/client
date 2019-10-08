@@ -13,6 +13,7 @@ use super::event::{
     Update,
 };
 use super::component::{
+    collider::{self, Collider},
     Health,
     Jump,
     Movement,
@@ -26,9 +27,11 @@ use super::resource::{
     TickLength,
 };
 use super::system::{
-    UpdateInputs,
+    CollisionDetection,
+    CollisionResolver,
     Physics,
     PlayerMovement,
+    UpdateInputs,
     UpdateSender,
     UpdateWorld,
 };
@@ -72,6 +75,7 @@ pub fn build_simulation<'a, 'b>(
     world.insert(MouseEuler::default());
     world.insert(tick_length);
 
+    world.register::<Collider>();
     world.register::<Health>();
     world.register::<Jump>();
     world.register::<Movement>();
@@ -80,20 +84,36 @@ pub fn build_simulation<'a, 'b>(
     world.register::<ServerID>();
     world.register::<Velocity>();
 
+    // Floor collision plane
+    world.create_entity()
+        .with(Position(nalgebra::Point3::new(0.0, 0.0, 0.0)))
+        .with(Collider::new(collider::ColliderType::Plane(
+            -nalgebra::Vector3::y_axis()
+        )))
+        .build();
+
+    // Player
     world.create_entity()
         .with(Name("Player".to_string()))
         .with(Health(100))
-        .with(Position(nalgebra::Point3::new(0.0, 0.0, 0.0)))
+        .with(Position(nalgebra::Point3::new(0.0, -1.0, 0.0)))
         .with(Velocity(nalgebra::Vector3::new(0.0, 0.0, 0.0)))
         .with(Movement { speed: config.movement_speed })
         .with(Jump { force: config.jump_force })
+        .with(Collider::new(collider::ColliderType::Sphere(1.0)))
         .build();
 
     let dispatcher = DispatcherBuilder::new()
         .with(UpdateInputs, "update_inputs", &[])
         .with(PlayerMovement, "player_movement", &["update_inputs"])
         .with(Physics::new(config.gravity), "physics", &["player_movement"])
-        .with(UpdateSender::new(update_tx, net_update_tx), "update_sender", &["player_movement", "physics"])
+        .with(CollisionDetection, "collision_detection", &["physics"])
+        .with(CollisionResolver, "collision_resolver", &["collision_detection"])
+        .with(
+            UpdateSender::new(update_tx, net_update_tx),
+            "update_sender",
+            &["player_movement", "physics", "collision_detection", "collision_resolver"]
+        )
         .with(UpdateWorld, "update_world", &[])
         .build();
 
