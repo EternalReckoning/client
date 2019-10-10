@@ -12,7 +12,9 @@ use super::super::{
         Update,
         UpdateEvent,
         PositionUpdate,
+        CameraUpdate,
     },
+    resource::ActiveCamera,
 };
 
 pub struct UpdateSender {
@@ -31,25 +33,35 @@ impl UpdateSender {
 impl<'a> System<'a> for UpdateSender {
     type SystemData = (
         Entities<'a>,
+        Read<'a, ActiveCamera>,
         ReadStorage<'a, Position>,
         ReadStorage<'a, ServerID>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (entities, pos, id) = data;
+        let (entities, camera, pos, id) = data;
 
         for (ent, pos) in (&entities, &pos).join() {
-            let event = Update {
-                time: std::time::Instant::now(),
-                event: UpdateEvent::PositionUpdate(
-                    PositionUpdate {
-                        uuid: match id.get(ent) {
-                            Some(uuid) => Some(uuid.0),
-                            None => None,
-                        },
-                        position: pos.0.clone(),
-                    },
-                ),
+            let time = std::time::Instant::now();
+            let event = match Some(ent) == camera.0 {
+                true => Update {
+                    event: UpdateEvent::CameraUpdate(
+                        CameraUpdate(pos.0.clone())
+                    ),
+                    time,
+                },
+                false => Update {
+                    event: UpdateEvent::PositionUpdate(
+                        PositionUpdate {
+                            uuid: match id.get(ent) {
+                                Some(uuid) => Some(uuid.0),
+                                None => None,
+                            },
+                            position: pos.0.clone(),
+                        }
+                    ),
+                    time,
+                },
             };
 
             self.sender.send(event.clone()).unwrap_or_else(|err| {

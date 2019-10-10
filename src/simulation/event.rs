@@ -22,6 +22,7 @@ pub struct Update {
 #[derive(Clone)]
 pub enum UpdateEvent {
     PositionUpdate(PositionUpdate),
+    CameraUpdate(CameraUpdate),
 }
 
 #[derive(Clone)]
@@ -29,3 +30,6 @@ pub struct PositionUpdate {
     pub uuid: Option<Uuid>,
     pub position: nalgebra::Point3<f64>,
 }
+
+#[derive(Clone)]
+pub struct CameraUpdate(pub nalgebra::Point3<f64>);

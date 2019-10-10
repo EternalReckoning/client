@@ -202,6 +202,7 @@ impl Future for WriteConnection {
                                         }
                                     ))?;
                                 },
+                                _ => (),
                             }
                         },
                         Err(err) => {

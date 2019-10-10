@@ -142,9 +142,8 @@ fn run(
                     let update = update_rx.try_recv();
                     match update {
                         Ok(e) => {
-                            let event::UpdateEvent::PositionUpdate(event::PositionUpdate { uuid, position }) = e.event;
-                            match uuid {
-                                Some(uuid) => {
+                            match e.event {
+                                event::UpdateEvent::PositionUpdate(event::PositionUpdate { uuid: Some(uuid), position }) => {
                                     let position = nalgebra::Transform3::<f32>::identity() * 
                                         nalgebra::Translation3::new(
                                             position.x as f32,
@@ -167,7 +166,10 @@ fn run(
                                         });
                                     }
                                 },
-                                None => camera_pos = position,
+                                event::UpdateEvent::CameraUpdate(event::CameraUpdate(position)) => {
+                                    camera_pos = position;
+                                },
+                                _ => (),
                             };
                         },
                         Err(_) => break,

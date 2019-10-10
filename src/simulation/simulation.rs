@@ -23,6 +23,7 @@ use super::component::{
     Velocity,
 };
 use super::resource::{
+    ActiveCamera,
     InputMap,
     TickLength,
 };
@@ -93,7 +94,7 @@ pub fn build_simulation<'a, 'b>(
         .build();
 
     // Player
-    world.create_entity()
+    let player = world.create_entity()
         .with(Name("Player".to_string()))
         .with(Health(100))
         .with(Position(nalgebra::Point3::new(0.0, -1.0, 0.0)))
@@ -102,6 +103,8 @@ pub fn build_simulation<'a, 'b>(
         .with(Jump { force: config.jump_force })
         .with(Collider::new(collider::ColliderType::Sphere(1.0)))
         .build();
+
+    world.insert(ActiveCamera(Some(player)));
 
     let dispatcher = DispatcherBuilder::new()
         .with(UpdateInputs, "update_inputs", &[])
