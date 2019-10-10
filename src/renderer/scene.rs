@@ -13,7 +13,7 @@ pub struct UI {
 pub struct Object {
     pub id: specs::Entity,
     pub model: Option<usize>,
-    pub position: nalgebra::Transform3<f32>,
+    pub position: nalgebra::Similarity3<f32>,
 }
 
 #[derive(Debug)]
@@ -65,12 +65,13 @@ impl Scene {
     pub fn set_model(
         &mut self,
         id: specs::Entity,
-        path: &String
+        path: &String,
+        offset: Option<nalgebra::Vector3::<f32>>,
     ) -> bool
     {
         match self.object_by_id(id) {
             Some(index) => {
-                let model = self.add_or_get_model(path);
+                let model = self.add_or_get_model(path, offset);
                 let object = self.objects.get_mut(index).unwrap();
                 object.model = Some(model);
                 return true;
@@ -82,7 +83,7 @@ impl Scene {
     pub fn set_position(
         &mut self,
         id: specs::Entity,
-        position: nalgebra::Transform3::<f32>
+        position: nalgebra::Similarity3::<f32>,
     ) -> bool
     {
         match self.object_by_id(id) {
@@ -106,7 +107,12 @@ impl Scene {
         None
     }
 
-    fn add_or_get_model(&mut self, path: &String) -> usize {
+    fn add_or_get_model(
+        &mut self,
+        path: &String,
+        offset: Option<nalgebra::Vector3::<f32>>
+    ) -> usize
+    {
         for i in 0..self.models.len() {
             let model = self.models.get(i).unwrap();
 
@@ -115,7 +121,11 @@ impl Scene {
             }
         }
 
-        self.models.push(super::Model::new(path.clone()));
+        let mut model = super::Model::new(path.clone());
+        if let Some(offset) = offset {
+            model.set_offset(offset);
+        }
+        self.models.push(model);
         self.models.len() - 1
     }
 }

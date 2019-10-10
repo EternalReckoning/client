@@ -40,7 +40,7 @@ pub struct CameraUpdate(pub nalgebra::Point3<f64>);
 pub struct ModelUpdate {
     pub entity: specs::Entity,
     pub path: String,
-    pub offset: nalgebra::Vector3<f64>,
+    pub offset: Option<nalgebra::Vector3<f32>>,
 }
 
 #[derive(Clone)]

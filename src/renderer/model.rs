@@ -6,6 +6,7 @@ use crate::loaders::meshes_from_erm;
 #[derive(Clone, Debug)]
 pub struct Model {
     pub path: String,
+    pub offset: Option<nalgebra::Vector3<f32>>,
     meshes: Vec<ModelMesh>,
 }
 
@@ -19,8 +20,13 @@ impl Model {
     pub fn new(path: String) -> Model {
         Model {
             path,
+            offset: None,
             meshes: Vec::new(),
         }
+    }
+
+    pub fn set_offset(&mut self, offset: nalgebra::Vector3::<f32>) {
+        self.offset = Some(offset);
     }
     
     pub fn len(&self) -> usize {

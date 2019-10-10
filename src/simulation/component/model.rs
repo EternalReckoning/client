@@ -2,7 +2,7 @@ use specs::prelude::*;
 
 pub struct Model {
     pub path: String,
-    pub offset: nalgebra::Vector3<f64>,
+    pub offset: Option<nalgebra::Vector3<f32>>,
 }
 
 impl Component for Model {
@@ -13,7 +13,7 @@ impl Model {
     pub fn new(path: &str) -> Model {
         Model {
             path: path.to_string(),
-            offset: nalgebra::Vector3::new(0.0, 0.0, 0.0),
+            offset: None,
         }
     }
 }

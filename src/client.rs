@@ -140,7 +140,7 @@ fn run(
                         Ok(e) => {
                             match e.event {
                                 event::UpdateEvent::PositionUpdate(event::PositionUpdate { entity, position, .. }) => {
-                                    let position = nalgebra::Transform3::<f32>::identity() * 
+                                    let position = nalgebra::Similarity3::<f32>::identity() * 
                                         nalgebra::Translation3::new(
                                             position.x as f32,
                                             position.y as f32,
@@ -159,7 +159,7 @@ fn run(
                                     camera_pos = position;
                                 },
                                 event::UpdateEvent::ModelUpdate(event::ModelUpdate { entity, ref path, offset }) => {
-                                    scene.set_model(entity, path);
+                                    scene.set_model(entity, path, offset);
                                 },
                             };
                         },
@@ -224,12 +224,7 @@ pub fn main(config: config::Config) -> Result<(), Error> {
     let mut scene = renderer::scene::Scene {
         camera: renderer::scene::Camera::new(aspect, config.client.field_of_view),
         ui: renderer::scene::UI::new(aspect),
-        models: vec![
-            renderer::Model::new("assets/floor.erm".to_string()),
-            renderer::Model::new("assets/marker.erm".to_string()),
-            renderer::Model::new("assets/pillar.erm".to_string()),
-            renderer::Model::new("assets/elf-spear.erm".to_string()),
-        ],
+        models: Vec::new(),
         objects: Vec::new(),
     };
 

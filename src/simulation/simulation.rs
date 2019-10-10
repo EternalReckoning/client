@@ -108,7 +108,7 @@ pub fn build_simulation<'a, 'b>(
         .with(Collider::new(collider::ColliderType::Sphere(1.0)))
         .with(Model {
             path: "assets/marker.erm".to_string(),
-            offset: nalgebra::Vector3::new(0.0, 1.0, 0.0)
+            offset: Some(nalgebra::Vector3::new(0.0, 1.0, 0.0))
         })
         .build();
 

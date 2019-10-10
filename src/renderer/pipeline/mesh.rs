@@ -333,7 +333,8 @@ where
                 None => continue,
             };
 
-            mesh_count += scene.models.get(model_id).unwrap().len();
+            let model = scene.models.get(model_id).unwrap();
+            mesh_count += model.len();
             let (offset_v, offset_i, index_count) =
                 model_offsets.get(model_id).unwrap();
 
@@ -343,7 +344,10 @@ where
                         &mut self.model_buf,
                         models_offset(index, self.align, object_i as u64),
                         &[InstanceArgs {
-                            model: object.position,
+                            model: match model.offset {
+                                Some(offset) => nalgebra::convert(object.position * nalgebra::Translation3::from(offset)),
+                                None => nalgebra::convert(object.position),
+                            }
                         }],
                     )
                     .unwrap();
