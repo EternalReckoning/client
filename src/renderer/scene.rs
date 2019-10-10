@@ -25,11 +25,11 @@ pub struct Scene {
 }
 
 impl Camera {
-    pub fn new(aspect: f32) -> Camera {
+    pub fn new(aspect: f32, vfov: f32) -> Camera {
         Camera {
             proj: nalgebra::Perspective3::new(
                 aspect,
-                3.1415 / 4.0, // FOV in radians?
+                std::f32::consts::PI * (vfov / 180.0),
                 1.0,
                 200.0,
             ),

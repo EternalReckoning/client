@@ -33,12 +33,14 @@ use crate::{
 #[serde(default, rename_all = "kebab-case")]
 pub struct ClientConfig {
     pub server_address: String,
+    pub field_of_view: f32,
 }
 
 impl Default for ClientConfig {
     fn default() -> ClientConfig {
         ClientConfig {
             server_address: "127.0.0.1:6142".to_string(),
+            field_of_view: 68.0,
         }
     }
 }
@@ -243,7 +245,7 @@ pub fn main(config: config::Config) -> Result<(), Error> {
     let aspect = window.get_aspect_ratio() as f32;
 
     let mut scene = renderer::scene::Scene {
-        camera: renderer::scene::Camera::new(aspect),
+        camera: renderer::scene::Camera::new(aspect, config.client.field_of_view),
         ui: renderer::scene::UI::new(aspect),
         models: vec![
             renderer::Model::new("assets/floor.erm".to_string()),
