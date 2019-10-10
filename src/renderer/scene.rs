@@ -11,8 +11,8 @@ pub struct UI {
 
 #[derive(Debug)]
 pub struct Object {
-    pub id: Option<uuid::Uuid>,
-    pub model: u64,
+    pub id: specs::Entity,
+    pub model: Option<usize>,
     pub position: nalgebra::Transform3<f32>,
 }
 
@@ -58,5 +58,64 @@ impl UI {
                 1.0,
             ),
         }
+    }
+}
+
+impl Scene {
+    pub fn set_model(
+        &mut self,
+        id: specs::Entity,
+        path: &String
+    ) -> bool
+    {
+        match self.object_by_id(id) {
+            Some(index) => {
+                let model = self.add_or_get_model(path);
+                let object = self.objects.get_mut(index).unwrap();
+                object.model = Some(model);
+                return true;
+            },
+            _ => false,
+        }
+    }
+
+    pub fn set_position(
+        &mut self,
+        id: specs::Entity,
+        position: nalgebra::Transform3::<f32>
+    ) -> bool
+    {
+        match self.object_by_id(id) {
+            Some(index) => {
+                let object = self.objects.get_mut(index).unwrap();
+                object.position = position;
+                return true;
+            },
+            _ => false,
+        }
+    }
+
+    fn object_by_id(&self, id: specs::Entity) -> Option<usize> {
+        for i in 0..self.objects.len() {
+            let object = self.objects.get(i).unwrap();
+
+            if object.id == id {
+                return Some(i);
+            }
+        }
+        None
+    }
+
+    fn add_or_get_model(&mut self, path: &String) -> usize {
+        for i in 0..self.models.len() {
+            let model = self.models.get(i).unwrap();
+
+            if &model.path == path {
+                return i;
+            }
+        }
+
+        self.models.push(super::Model::new(path.clone()));
+        self.models.len() - 1
     }
 }

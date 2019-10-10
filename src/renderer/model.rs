@@ -5,7 +5,7 @@ use crate::loaders::meshes_from_erm;
 
 #[derive(Clone, Debug)]
 pub struct Model {
-    path: String,
+    pub path: String,
     meshes: Vec<ModelMesh>,
 }
 
