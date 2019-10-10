@@ -1,6 +1,6 @@
 [package]
 name = "eternalreckoning-client"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Henry Carlson <henry.carlson@gmail.com>"]
 edition = "2018"
 
@@ -17,10 +17,11 @@ x11 = [
 ]
 
 [dependencies]
-eternalreckoning-core = { version = "0.1.2", path = "../core" }
+eternalreckoning-core = { version = "0.1.3", path = "../core" }
 
 bitflags = "1.1"
 bytes = "0.4"
+circular-queue = "0.2"
 failure = "0.1"
 failure_derive = "0.1"
 futures = "0.1"
