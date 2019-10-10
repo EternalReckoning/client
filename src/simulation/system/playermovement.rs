@@ -60,16 +60,13 @@ impl<'a> System<'a> for PlayerMovement {
         }
 
         // normalizing <0, 0, 0> would produce <NaN, NaN, NaN>, we'd rather not...
-        if movement.x != 0.0 || movement.y != 0.0 || movement.z != 0.0 {
-            movement.normalize_mut();
-            
+        if let Some(movement) = movement.try_normalize(0.001) {
             let rotation = nalgebra::Rotation3::from_axis_angle(
                 &nalgebra::Vector3::<f64>::y_axis(),
                 mouse_euler.yaw
             );
 
-            movement = rotation.transform_vector(&movement);
-
+            let movement = rotation.transform_vector(&movement);
             for (mov, pos) in (&mov, &mut pos).join() {
                 pos.0 += movement * mov.speed;
             }

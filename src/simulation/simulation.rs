@@ -116,18 +116,30 @@ pub fn build_simulation<'a, 'b>(
     world.insert(ActiveCharacter(Some(player)));
 
     world.create_entity()
-        .with(Position(nalgebra::Point3::new(-5.5, 0.0, -7.0)))
-        .with(Model::new("assets/pillar.erm"))
+        .with(Position(nalgebra::Point3::new(-5.5, -1.0, -7.0)))
+        .with(Model {
+            path: "assets/pillar.erm".to_string(),
+            offset: Some(nalgebra::Vector3::new(0.0, 1.0, 0.0))
+        })
+        .with(Collider::new(collider::ColliderType::Sphere(1.0)))
         .build();
 
     world.create_entity()
-        .with(Position(nalgebra::Point3::new(5.5, 0.0, -7.0)))
-        .with(Model::new("assets/pillar.erm"))
+        .with(Position(nalgebra::Point3::new(5.5, -1.0, -7.0)))
+        .with(Model {
+            path: "assets/pillar.erm".to_string(),
+            offset: Some(nalgebra::Vector3::new(0.0, 1.0, 0.0))
+        })
+        .with(Collider::new(collider::ColliderType::Sphere(1.0)))
         .build();
 
     world.create_entity()
-        .with(Position(nalgebra::Point3::new(0.0, 0.0, -9.0)))
-        .with(Model::new("assets/elf-spear.erm"))
+        .with(Position(nalgebra::Point3::new(0.0, -0.5, -9.0)))
+        .with(Model {
+            path: "assets/elf-spear.erm".to_string(),
+            offset: Some(nalgebra::Vector3::new(0.0, 0.5, 0.0))
+        })
+        .with(Collider::new(collider::ColliderType::Sphere(0.5)))
         .build();
 
     let dispatcher = DispatcherBuilder::new()

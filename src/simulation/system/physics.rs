@@ -31,15 +31,9 @@ impl<'a> System<'a> for Physics {
         for (pos, vel) in (&mut pos, &mut vel).join() {
             pos.0 += vel.0;
 
-            if pos.0.y > 0.0 {
-                pos.0.y = 0.0;
-            }
+            vel.0 *= 0.95;
 
-            if pos.0.y < 0.0 {
-                vel.0 += self.gravity;
-            } else {
-                vel.0.y = 0.0;
-            }
+            vel.0 += self.gravity;
         }
     }
 }
