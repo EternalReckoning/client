@@ -16,7 +16,10 @@ use super::super::{
         CameraUpdate,
         ModelUpdate,
     },
-    resource::ActiveCamera,
+    resource::{
+        ActiveCamera,
+        ActiveCharacter,
+    },
 };
 
 pub struct UpdateSender {
@@ -36,13 +39,14 @@ impl<'a> System<'a> for UpdateSender {
     type SystemData = (
         Entities<'a>,
         Read<'a, ActiveCamera>,
+        Read<'a, ActiveCharacter>,
         ReadStorage<'a, Model>,
         ReadStorage<'a, Position>,
         ReadStorage<'a, ServerID>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (entities, camera, model, pos, id) = data;
+        let (entities, camera, character, model, pos, id) = data;
 
         let time = std::time::Instant::now();
 
@@ -77,7 +81,7 @@ impl<'a> System<'a> for UpdateSender {
                 log::error!("failed to send update event: {}", err);
             });
 
-            if id.get(ent).is_none() {
+            if character.0.is_some() && ent == character.0.unwrap() {
                 self.net_sender.unbounded_send(event).unwrap_or_else(|err| {
                     log::error!("failed to send update event: {}", err);
                 });

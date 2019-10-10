@@ -25,6 +25,7 @@ use super::component::{
 };
 use super::resource::{
     ActiveCamera,
+    ActiveCharacter,
     InputMap,
     TickLength,
 };
@@ -111,6 +112,9 @@ pub fn build_simulation<'a, 'b>(
         })
         .build();
 
+    world.insert(ActiveCamera(Some(player)));
+    world.insert(ActiveCharacter(Some(player)));
+
     world.create_entity()
         .with(Position(nalgebra::Point3::new(-5.5, 0.0, -7.0)))
         .with(Model::new("assets/pillar.erm"))
@@ -125,8 +129,6 @@ pub fn build_simulation<'a, 'b>(
         .with(Position(nalgebra::Point3::new(0.0, 0.0, -9.0)))
         .with(Model::new("assets/elf-spear.erm"))
         .build();
-
-    world.insert(ActiveCamera(Some(player)));
 
     let dispatcher = DispatcherBuilder::new()
         .with(UpdateInputs, "update_inputs", &[])
