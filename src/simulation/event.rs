@@ -2,8 +2,15 @@ use uuid::Uuid;
 use eternalreckoning_core::net::operation::Operation;
 
 pub enum Event {
+    ConnectionEvent(ConnectionEvent),
     InputEvent(InputEvent),
     NetworkEvent(Operation),
+}
+
+#[derive(Debug)]
+pub enum ConnectionEvent {
+    Connected(Uuid),
+    Disconnected(Uuid),
 }
 
 #[derive(Debug)]
