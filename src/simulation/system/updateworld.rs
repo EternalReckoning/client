@@ -5,6 +5,7 @@ use eternalreckoning_core::net::operation;
 use crate::simulation::{
     event::Event,
     component::{
+        Model,
         Health,
         Position,
         ServerID,
@@ -19,12 +20,13 @@ impl<'a> System<'a> for UpdateWorld {
         Entities<'a>,
         Read<'a, EventQueue>,
         WriteStorage<'a, ServerID>,
+        WriteStorage<'a, Model>,
         WriteStorage<'a, Health>,
         WriteStorage<'a, Position>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (entities, events, mut id, mut hp, mut pos) = data;
+        let (entities, events, mut id, mut model, mut hp, mut pos) = data;
 
         for event in &*events {
             if let Event::NetworkEvent(operation::Operation::SvUpdateWorld(data)) = event {
@@ -40,6 +42,7 @@ impl<'a> System<'a> for UpdateWorld {
                     if entity.is_none() {
                         entity = Some(entities.create());
                         id.insert(entity.unwrap(), ServerID(update.uuid)).unwrap();
+                        model.insert(entity.unwrap(), Model::new("assets/marker.erm")).unwrap();
                     }
                     let entity = entity.unwrap();
 

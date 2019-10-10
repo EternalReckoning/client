@@ -93,10 +93,7 @@ pub fn build_simulation<'a, 'b>(
         .with(Collider::new(collider::ColliderType::Plane(
             -nalgebra::Vector3::y_axis()
         )))
-        .with(Model {
-            path: "assets/floor.erm".to_string(),
-            offset: nalgebra::Vector3::new(0.0, 0.0, 0.0),
-        })
+        .with(Model::new("assets/floor.erm"))
         .build();
 
     // Player
@@ -116,26 +113,17 @@ pub fn build_simulation<'a, 'b>(
 
     world.create_entity()
         .with(Position(nalgebra::Point3::new(-5.5, 0.0, -7.0)))
-        .with(Model {
-            path: "assets/pillar.erm".to_string(),
-            offset: nalgebra::Vector3::new(0.0, 0.0, 0.0),
-        })
+        .with(Model::new("assets/pillar.erm"))
         .build();
 
     world.create_entity()
         .with(Position(nalgebra::Point3::new(5.5, 0.0, -7.0)))
-        .with(Model {
-            path: "assets/pillar.erm".to_string(),
-            offset: nalgebra::Vector3::new(0.0, 0.0, 0.0),
-        })
+        .with(Model::new("assets/pillar.erm"))
         .build();
 
     world.create_entity()
         .with(Position(nalgebra::Point3::new(0.0, 0.0, -9.0)))
-        .with(Model {
-            path: "assets/elf-spear.erm".to_string(),
-            offset: nalgebra::Vector3::new(0.0, 0.0, 0.0),
-        })
+        .with(Model::new("assets/elf-spear.erm"))
         .build();
 
     world.insert(ActiveCamera(Some(player)));
