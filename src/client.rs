@@ -216,7 +216,7 @@ pub fn main(config: config::Config) -> Result<(), Error> {
 
     log::info!("Creating window...");
 
-    let window = Window::new()?;
+    let window = Window::new(&config.display)?;
 
     log::info!("Initializing rendering pipeline...");
 

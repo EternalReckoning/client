@@ -6,11 +6,13 @@ use crate::client::ClientConfig;
 use crate::input::MouseConfig;
 use crate::input::KeyMapConfig;
 use crate::simulation::SimulationConfig;
+use crate::window::DisplayConfig;
 
 #[derive(Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct Config {
     pub client: ClientConfig,
+    pub display: DisplayConfig,
     pub key_map: KeyMapConfig,
     pub logging: LoggingConfig,
     pub mouse: MouseConfig,
@@ -21,6 +23,7 @@ impl Default for Config {
     fn default() -> Config {
         Config {
             client: ClientConfig::default(),
+            display: DisplayConfig::default(),
             key_map: KeyMapConfig::default(),
             logging: LoggingConfig::default(),
             mouse: MouseConfig::default(),

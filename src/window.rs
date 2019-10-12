@@ -4,17 +4,67 @@ use failure::{
 };
 use rendy::wsi::winit;
 
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
+pub struct DisplayConfig {
+    pub display_mode: DisplayMode,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum DisplayMode {
+    Windowed,
+    Borderless,
+    Fullscreen,
+}
+
+impl Default for DisplayConfig {
+    fn default() -> DisplayConfig {
+        DisplayConfig {
+            display_mode: DisplayMode::Windowed,
+        }
+    }
+}
+
 pub struct Window {
     window: winit::window::Window,
     event_loop: winit::event_loop::EventLoop<()>,
 }
 
 impl Window {
-    pub fn new() -> Result<Window, Error> {
+    pub fn new(config: &DisplayConfig) -> Result<Window, Error> {
         let event_loop = winit::event_loop::EventLoop::new();
 
-        let window = winit::window::WindowBuilder::new()
-            .with_title("World Client")
+        let mut builder = winit::window::WindowBuilder::new()
+            .with_title("Eternal Reckoning");
+
+        let monitor = event_loop.primary_monitor();
+
+        builder = builder.with_fullscreen(match config.display_mode {
+            DisplayMode::Windowed => None,
+            DisplayMode::Borderless => Some(
+                winit::window::Fullscreen::Borderless(monitor)
+            ),
+            DisplayMode::Fullscreen => {
+                let mut mode: _ = None;
+                for avail_mode in monitor.video_modes() {
+                    if avail_mode.size() == monitor.size() {
+                        mode = Some(avail_mode);
+                        break;
+                    }
+                }
+
+                if mode.is_none() {
+                    return Err(
+                        format_err!("no suitable video mode found")
+                    );
+                }
+
+                Some(winit::window::Fullscreen::Exclusive(mode.unwrap()))
+            },
+        });
+
+        let window = builder
             .build(&event_loop)
             .map_err(|err| format_err!("failed to create window: {:?}", err))?;
 
