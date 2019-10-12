@@ -8,6 +8,7 @@ pub struct Collider {
 pub struct Collision {
     pub with: Entity,
     pub depth: nalgebra::Vector3<f64>,
+    pub normal: nalgebra::Unit<nalgebra::Vector3<f64>>,
 }
 
 pub enum ColliderType {

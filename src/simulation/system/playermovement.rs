@@ -3,7 +3,6 @@ use specs::prelude::*;
 use crate::input::MouseEuler;
 use crate::simulation::{
     component::{
-        Collider,
         Jump,
         Movement,
         Position,
@@ -18,7 +17,6 @@ impl<'a> System<'a> for PlayerMovement {
     type SystemData = (
         Read<'a, InputMap>,
         Read<'a, MouseEuler>,
-        ReadStorage<'a, Collider>,
         ReadStorage<'a, Movement>,
         ReadStorage<'a, Jump>,
         WriteStorage<'a, Position>,
@@ -26,20 +24,11 @@ impl<'a> System<'a> for PlayerMovement {
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (input, mouse_euler, collider, mov, jump, mut pos, mut vel) = data;
+        let (input, mouse_euler, mov, jump, mut pos, mut vel) = data;
 
         if input.move_up {
-            for (collider, jump, vel) in (&collider, &jump, &mut vel).join() {
-                let mut on_ground = false;
-                let y_axis = nalgebra::Vector3::y();
-                for collision in &collider.collisions {
-                    if collision.depth.cross(&y_axis).magnitude_squared() <= 0.1 {
-                        on_ground = true;
-                        break;
-                    }
-                }
-
-                if on_ground {
+            for (mov, jump, vel) in (&mov, &jump, &mut vel).join() {
+                if mov.on_ground {
                     vel.0.y -= jump.force;
                 }
             }
@@ -59,7 +48,6 @@ impl<'a> System<'a> for PlayerMovement {
             movement += nalgebra::Vector3::x();
         }
 
-        // normalizing <0, 0, 0> would produce <NaN, NaN, NaN>, we'd rather not...
         if let Some(movement) = movement.try_normalize(0.001) {
             let rotation = nalgebra::Rotation3::from_axis_angle(
                 &nalgebra::Vector3::<f64>::y_axis(),

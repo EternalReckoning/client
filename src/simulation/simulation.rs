@@ -47,6 +47,8 @@ pub struct SimulationConfig {
     pub gravity: f64,
     pub movement_speed: f64,
     pub jump_force: f64,
+    pub min_collision_depth: f64,
+    pub max_ground_slope: f64,
 }
 
 impl Default for SimulationConfig {
@@ -55,6 +57,8 @@ impl Default for SimulationConfig {
             gravity: 0.48,
             movement_speed: 6.0,
             jump_force: 10.35,
+            min_collision_depth: 0.001,
+            max_ground_slope: 0.2,
         }
     }
 }
@@ -103,7 +107,7 @@ pub fn build_simulation<'a, 'b>(
         .with(Health(100))
         .with(Position(nalgebra::Point3::new(0.0, -1.0, 0.0)))
         .with(Velocity(nalgebra::Vector3::new(0.0, 0.0, 0.0)))
-        .with(Movement { speed: config.movement_speed })
+        .with(Movement { speed: config.movement_speed, on_ground: true })
         .with(Jump { force: config.jump_force })
         .with(Collider::new(collider::ColliderType::Sphere(1.0)))
         .with(Model {
@@ -146,8 +150,16 @@ pub fn build_simulation<'a, 'b>(
         .with(UpdateInputs, "update_inputs", &[])
         .with(PlayerMovement, "player_movement", &["update_inputs"])
         .with(Physics::new(config.gravity), "physics", &["player_movement"])
-        .with(CollisionDetection, "collision_detection", &["physics"])
-        .with(CollisionResolver, "collision_resolver", &["collision_detection"])
+        .with(
+            CollisionDetection::new(config.min_collision_depth),
+            "collision_detection",
+            &["physics"]
+        )
+        .with(
+            CollisionResolver::new(config.max_ground_slope),
+            "collision_resolver",
+            &["collision_detection"]
+        )
         .with(
             UpdateSender::new(update_tx, net_update_tx),
             "update_sender",
