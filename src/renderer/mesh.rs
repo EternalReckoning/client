@@ -3,8 +3,7 @@ use failure::format_err;
 
 #[derive(Clone, Debug)]
 pub struct Mesh {
-    vertices: Vec<rendy::mesh::Position>,
-    colors: Option<Vec<rendy::mesh::Color>>,
+    pub vertices: Vec<rendy::mesh::PosColor>,
     pub indices: Option<Vec<u32>>,
 }
 
@@ -17,30 +16,6 @@ pub struct MeshBuilder {
 impl Mesh {
     pub fn len(&self) -> u32 {
         self.vertices.len() as u32
-    }
-}
-
-impl std::convert::Into<Vec<rendy::mesh::PosColor>> for Mesh {
-    fn into(self) -> Vec<rendy::mesh::PosColor> {
-        let mut res = Vec::with_capacity(self.vertices.len());
-
-        for index in 0..self.vertices.len() {
-            let position = (self.vertices.get(index).unwrap()).clone().into();
-            let color: _;
-
-            match self.colors {
-                None => {
-                    color = [0.5, 0.5, 0.5, 1.0].into();
-                },
-                Some(ref colors) => {
-                    color = (colors.get(index).unwrap()).clone().into();
-                },
-            }
-
-            res.push(rendy::mesh::PosColor { position, color });
-        }
-
-        res
     }
 }
 
@@ -95,9 +70,26 @@ impl MeshBuilder {
             return Err(format_err!("cannot build a mesh without vertex data"));
         }
 
+        let source = self.vertices.unwrap();
+        let mut vertices = Vec::with_capacity(source.len());
+        for index in 0..source.len() {
+            let position = source.get(index).unwrap().clone().into();
+            let color: _;
+
+            match self.colors {
+                None => {
+                    color = [0.5, 0.5, 0.5, 1.0].into();
+                },
+                Some(ref colors) => {
+                    color = (colors.get(index).unwrap()).clone().into();
+                },
+            }
+
+            vertices.push(rendy::mesh::PosColor { position, color });
+        }
+
         Ok(Mesh {
-           vertices: self.vertices.unwrap(),
-           colors: self.colors,
+           vertices: vertices,
            indices: self.indices,
         })
     }

@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use rendy::{
     factory::Factory,
     graph::render::{
@@ -294,15 +292,12 @@ where
 
             for mesh_i in 0..model.len() {
                 let mesh = model.get(mesh_i).unwrap();
-                let mesh_buffer: Vec<rendy::mesh::PosColor> =
-                    mesh.clone().try_into().unwrap();
-
                 unsafe {
                     factory
                         .upload_visible_buffer(
                             &mut self.vertex_buf,
                             vertex_offset(index, self.align, offset_v as u64),
-                            mesh_buffer.as_slice(),
+                            mesh.vertices.as_slice(),
                         )
                         .unwrap();
 
@@ -310,7 +305,7 @@ where
                         .upload_visible_buffer(
                             &mut self.index_buf,
                             index_offset(index, self.align, offset_i as u64),
-                            mesh.indices.as_ref().unwrap().clone().as_slice(),
+                            mesh.indices.as_ref().unwrap().as_slice(),
                         )
                         .unwrap();
                 }
