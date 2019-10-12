@@ -38,27 +38,24 @@ use super::system::{
     UpdateSender,
     UpdateWorld,
 };
+use super::PhysicsConfig;
 
 use eternalreckoning_core::simulation::Simulation;
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct SimulationConfig {
-    pub gravity: f64,
     pub movement_speed: f64,
     pub jump_force: f64,
-    pub min_collision_depth: f64,
-    pub max_ground_slope: f64,
+    pub physics: PhysicsConfig,
 }
 
 impl Default for SimulationConfig {
     fn default() -> SimulationConfig {
         SimulationConfig {
-            gravity: 0.48,
             movement_speed: 6.0,
             jump_force: 10.35,
-            min_collision_depth: 0.001,
-            max_ground_slope: 0.2,
+            physics: PhysicsConfig::default(),
         }
     }
 }
@@ -74,9 +71,10 @@ pub fn build_simulation<'a, 'b>(
 
     let tick_length = TickLength(tick_length);
 
-    config.gravity = tick_length.scale_to(config.gravity);
     config.movement_speed = tick_length.scale_to(config.movement_speed);
     config.jump_force = tick_length.scale_to(config.jump_force);
+    
+    config.physics.gravity = tick_length.scale_to(config.physics.gravity);
 
     world.insert(InputMap::default());
     world.insert(MouseEuler::default());
@@ -149,14 +147,14 @@ pub fn build_simulation<'a, 'b>(
     let dispatcher = DispatcherBuilder::new()
         .with(UpdateInputs, "update_inputs", &[])
         .with(PlayerMovement, "player_movement", &["update_inputs"])
-        .with(Physics::new(config.gravity), "physics", &["player_movement"])
+        .with(Physics::new(&config.physics), "physics", &["player_movement"])
         .with(
-            CollisionDetection::new(config.min_collision_depth),
+            CollisionDetection::new(&config.physics),
             "collision_detection",
             &["physics"]
         )
         .with(
-            CollisionResolver::new(config.max_ground_slope),
+            CollisionResolver::new(&config.physics),
             "collision_resolver",
             &["collision_detection"]
         )

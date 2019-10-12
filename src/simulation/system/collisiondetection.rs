@@ -1,5 +1,6 @@
 use specs::prelude::*;
 
+use crate::simulation::PhysicsConfig;
 use crate::simulation::{
     component::{
         collider::{
@@ -68,8 +69,8 @@ impl<'a> System<'a> for CollisionDetection {
 }
 
 impl CollisionDetection {
-    pub fn new(min_collision_depth: f64) -> CollisionDetection {
-        CollisionDetection { min_collision_depth }
+    pub fn new(config: &PhysicsConfig) -> CollisionDetection {
+        CollisionDetection { min_collision_depth: config.min_collision_depth }
     }
 
     fn check_collision(

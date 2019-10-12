@@ -1,5 +1,6 @@
 use specs::prelude::*;
 
+use crate::simulation::PhysicsConfig;
 use crate::simulation::{
     component::{
         collider::Collider,
@@ -18,9 +19,9 @@ impl CollisionResolver {
      * 'max_ground_slope' gives the maximum slope in percentage notation
      * upon which something is considered to be "on ground"
      */
-    pub fn new(max_ground_slope: f64) -> CollisionResolver {
+    pub fn new(config: &PhysicsConfig) -> CollisionResolver {
         CollisionResolver {
-            min_ground_y: 1.0 - max_ground_slope,
+            min_ground_y: 1.0 - config.max_ground_slope,
         }
     }
 }
