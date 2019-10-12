@@ -1,5 +1,5 @@
 pub struct HeightMap {
-    size: usize,
+    pub size: usize,
     scale: f32,
     data: Vec<f32>,
 }
@@ -12,6 +12,14 @@ impl HeightMap {
 
     pub fn len(&self) -> usize {
         self.size * self.size
+    }
+
+    pub fn get(&self, x: usize, y: usize) -> Option<f32> {
+        if x >= self.size || y >= self.size {
+            return None;
+        }
+
+        Some(*self.data.get(x + y * self.size).unwrap() * self.scale)
     }
 
     pub fn vertices(&self) -> Vec<rendy::mesh::Position> {

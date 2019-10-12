@@ -1,5 +1,7 @@
 use specs::prelude::*;
 
+use crate::renderer::terrain::HeightMap;
+
 pub struct Collider {
     pub collider: ColliderType,
     pub collisions: Vec<Collision>,
@@ -13,7 +15,8 @@ pub struct Collision {
 
 pub enum ColliderType {
     Plane(nalgebra::Unit<nalgebra::Vector3<f64>>),
-    Sphere(f64)
+    Sphere(f64),
+    HeightMap(HeightMap),
 }
 
 impl Collider {
