@@ -1,6 +1,7 @@
 pub mod mesh;
 pub mod model;
 pub mod scene;
+pub mod terrain;
 
 mod graph;
 mod pipeline;

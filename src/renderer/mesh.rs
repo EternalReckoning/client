@@ -3,14 +3,14 @@ use failure::format_err;
 
 #[derive(Clone, Debug)]
 pub struct Mesh {
-    vertices: Vec<[f32; 3]>,
-    colors: Option<Vec<[f32; 4]>>,
+    vertices: Vec<rendy::mesh::Position>,
+    colors: Option<Vec<rendy::mesh::Color>>,
     pub indices: Option<Vec<u32>>,
 }
 
 pub struct MeshBuilder {
-    vertices: Option<Vec<[f32; 3]>>,
-    colors: Option<Vec<[f32; 4]>>,
+    vertices: Option<Vec<rendy::mesh::Position>>,
+    colors: Option<Vec<rendy::mesh::Color>>,
     indices: Option<Vec<u32>>,
 }
 
@@ -54,7 +54,7 @@ impl MeshBuilder {
     }
 
     pub fn with_vertices(
-        mut self, vertices: &[[f32; 3]]
+        mut self, vertices: &[rendy::mesh::Position]
     ) -> MeshBuilder {
         let mut vert_vec = Vec::with_capacity(vertices.len());
         for vert in vertices {
@@ -66,7 +66,7 @@ impl MeshBuilder {
     }
 
     pub fn with_colors(
-        mut self, colors: &[[f32; 4]]
+        mut self, colors: &[rendy::mesh::Color]
     ) -> MeshBuilder {
         let mut col_vec = Vec::with_capacity(colors.len());
         for col in colors {

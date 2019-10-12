@@ -96,7 +96,10 @@ pub fn build_simulation<'a, 'b>(
         .with(Collider::new(collider::ColliderType::Plane(
             -nalgebra::Vector3::y_axis()
         )))
-        .with(Model::new("assets/floor.erm"))
+        .with(Model {
+            path: "assets/terrain.bmp".to_string(),
+            offset: Some(nalgebra::Vector3::new(-64.0, 12.5, -64.0)),
+        })
         .build();
 
     // Player

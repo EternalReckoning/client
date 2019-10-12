@@ -95,7 +95,7 @@ fn mesh_from_erm(reader: &mut std::io::BufReader<std::fs::File>, index_offset: u
     }
 
     let mut vertices = Vec::with_capacity(object_header.vertex_count as usize);
-    let mut colors = Vec::with_capacity(object_header.index_count as usize);
+    let mut colors = Vec::<rendy::mesh::Color>::with_capacity(object_header.index_count as usize);
     let mut indices = Vec::with_capacity(object_header.index_count as usize);
 
     for _vertex_index in 0..object_header.vertex_count {
@@ -111,7 +111,7 @@ fn mesh_from_erm(reader: &mut std::io::BufReader<std::fs::File>, index_offset: u
             vertex.x as f32,
             vertex.y as f32,
             vertex.z as f32,
-        ]);
+        ].into());
     }
     
     mesh_builder = mesh_builder.with_vertices(&vertices);
@@ -133,7 +133,7 @@ fn mesh_from_erm(reader: &mut std::io::BufReader<std::fs::File>, index_offset: u
                 color.g as f32,
                 color.b as f32,
                 color.a as f32,
-            ]);
+            ].into());
         }
     }
 

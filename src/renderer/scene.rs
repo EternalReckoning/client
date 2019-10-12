@@ -114,9 +114,12 @@ impl Scene {
     ) -> usize
     {
         for i in 0..self.models.len() {
-            let model = self.models.get(i).unwrap();
+            let model = self.models.get_mut(i).unwrap();
 
             if &model.path == path {
+                if let Some(offset) = offset {
+                    model.set_offset(offset);
+                }
                 return i;
             }
         }

@@ -19,6 +19,7 @@ use rendy::{
 use crate::{
     input,
     input::InputTypes,
+    loaders,
     networking,
     renderer,
     simulation::{
@@ -221,10 +222,17 @@ pub fn main(config: config::Config) -> Result<(), Error> {
 
     let aspect = window.get_aspect_ratio() as f32;
 
+    let mut terrain = renderer::Model::new("assets/terrain.bmp".to_string());
+    let terrain_mesh = loaders::mesh_from_bmp("assets/terrain.bmp", 25.0)?;
+    terrain.add_mesh(
+        nalgebra::Point3::new(0.0, 0.0, 0.0),
+        terrain_mesh
+    );
+
     let mut scene = renderer::scene::Scene {
         camera: renderer::scene::Camera::new(aspect, config.client.field_of_view),
         ui: renderer::scene::UI::new(aspect),
-        models: Vec::new(),
+        models: vec![terrain],
         objects: Vec::new(),
     };
 

@@ -39,8 +39,8 @@ lazy_static::lazy_static! {
     static ref SHADER_REFLECTION: rendy::shader::SpirvReflection = SHADERS.reflect().unwrap();
 }
 
-const MAX_VERTEX_COUNT: usize = 512;
-const MAX_INDEX_COUNT: usize = 4096;
+const MAX_VERTEX_COUNT: usize = 65_536;
+const MAX_INDEX_COUNT: usize = 524_288;
 const MAX_OBJECT_COUNT: usize = 32;
 
 const UNIFORM_SIZE: u64 = std::mem::size_of::<UniformArgs>() as u64;
