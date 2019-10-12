@@ -109,15 +109,16 @@ pub fn build_simulation<'a, 'b>(
         .with(Movement { speed: config.movement_speed, on_ground: true })
         .with(Jump { force: config.jump_force })
         .with(Collider::new(collider::ColliderType::Sphere(1.0)))
-        .with(Model {
+        /*.with(Model {
             path: "assets/marker.erm".to_string(),
             offset: Some(nalgebra::Vector3::new(0.0, 1.0, 0.0))
-        })
+        })*/
         .build();
 
     world.insert(ActiveCamera(Some(player)));
     world.insert(ActiveCharacter(Some(player)));
 
+    /*
     world.create_entity()
         .with(Position(nalgebra::Point3::new(-8.0, -1.1, 16.0)))
         .with(Model {
@@ -144,6 +145,7 @@ pub fn build_simulation<'a, 'b>(
         })
         .with(Collider::new(collider::ColliderType::Sphere(1.0)))
         .build();
+    */
 
     let dispatcher = DispatcherBuilder::new()
         .with(UpdateInputs, "update_inputs", &[])

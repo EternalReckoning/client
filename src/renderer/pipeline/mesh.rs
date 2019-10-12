@@ -1,3 +1,5 @@
+use std::{fs::File, io::BufReader};
+
 use rendy::{
     factory::Factory,
     graph::render::{
@@ -37,12 +39,12 @@ lazy_static::lazy_static! {
     static ref SHADER_REFLECTION: rendy::shader::SpirvReflection = SHADERS.reflect().unwrap();
 }
 
-const MAX_VERTEX_COUNT: usize = 65_536;
-const MAX_INDEX_COUNT: usize = 524_288;
+const MAX_VERTEX_COUNT: usize = 524_288;
+const MAX_INDEX_COUNT: usize = 2_097_152;
 const MAX_OBJECT_COUNT: usize = 32;
 
 const UNIFORM_SIZE: u64 = std::mem::size_of::<UniformArgs>() as u64;
-const VERTEX_SIZE: u64 = (std::mem::size_of::<rendy::mesh::PosColor>() * MAX_VERTEX_COUNT) as u64;
+const VERTEX_SIZE: u64 = (std::mem::size_of::<rendy::mesh::PosTex>() * MAX_VERTEX_COUNT) as u64;
 const INDEX_SIZE: u64 = (std::mem::size_of::<u64>() * MAX_INDEX_COUNT) as u64;
 const MODEL_SIZE: u64 = (std::mem::size_of::<InstanceArgs>() * MAX_OBJECT_COUNT) as u64;
 const INDIRECT_COMMAND_SIZE: u64 = std::mem::size_of::<rendy::command::DrawIndexedCommand>() as u64;
@@ -58,7 +60,7 @@ const fn uniform_offset(index: usize, align: u64) -> u64 {
 
 const fn vertex_offset(index: usize, align: u64, offset: u64) -> u64 {
     buffer_frame_size(VERTEX_SIZE, align, index) +
-        (std::mem::size_of::<rendy::mesh::PosColor>() as u64 * offset)
+        (std::mem::size_of::<rendy::mesh::PosTex>() as u64 * offset)
 }
 
 const fn index_offset(index: usize, align: u64, offset: u64) -> u64 {
@@ -101,6 +103,7 @@ pub struct TriangleRenderPipeline<B: hal::Backend> {
     model_buf: rendy::resource::Escape<rendy::resource::Buffer<B>>,
     indirect_buf: rendy::resource::Escape<rendy::resource::Buffer<B>>,
     sets: Vec<rendy::resource::Escape<rendy::resource::DescriptorSet<B>>>,
+    texture: rendy::texture::Texture<B>,
     mesh_count: usize,
 }
 
@@ -127,7 +130,7 @@ where
     )> {
         return vec![
             SHADER_REFLECTION
-                .attributes(&["position", "color"])
+                .attributes(&["position", "uv"])
                 .unwrap()
                 .gfx_vertex_input_desc(hal::pso::VertexInputRate::Vertex),
             SHADER_REFLECTION
@@ -138,14 +141,41 @@ where
     }
 
     fn layout(&self) -> rendy::util::types::Layout {
-        SHADER_REFLECTION.layout().unwrap()
+        rendy::util::types::Layout {
+            sets: vec![rendy::util::types::SetLayout {
+                bindings: vec![
+                    hal::pso::DescriptorSetLayoutBinding {
+                        binding: 0,
+                        ty: hal::pso::DescriptorType::UniformBuffer,
+                        count: 1,
+                        stage_flags: hal::pso::ShaderStageFlags::GRAPHICS,
+                        immutable_samplers: false,
+                    },
+                    hal::pso::DescriptorSetLayoutBinding {
+                        binding: 1,
+                        ty: hal::pso::DescriptorType::SampledImage,
+                        count: 1,
+                        stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
+                        immutable_samplers: false,
+                    },
+                    hal::pso::DescriptorSetLayoutBinding {
+                        binding: 2,
+                        ty: hal::pso::DescriptorType::Sampler,
+                        count: 1,
+                        stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
+                        immutable_samplers: false,
+                    },
+                ],
+            }],
+            push_constants: Vec::new(),
+        }
     }
 
     fn build<'a>(
         self,
         ctx: &rendy::graph::GraphContext<B>,
         factory: &mut Factory<B>,
-        _queue: rendy::command::QueueId,
+        queue: rendy::command::QueueId,
         scene: &Scene,
         buffers: Vec<rendy::graph::NodeBuffer>,
         images: Vec<rendy::graph::NodeImage>,
@@ -154,6 +184,43 @@ where
         assert!(buffers.is_empty());
         assert!(images.is_empty());
         assert_eq!(set_layouts.len(), 1);
+
+        let image_reader = BufReader::new(
+            File::open("assets/stone.png")
+                .map_err(|e| {
+                    log::error!("Unable to open {}: {:?}", "assets/stone.png", e);
+                    hal::pso::CreationError::Other
+                })?
+        );
+
+        let mut texture_builder = rendy::texture::image::load_from_image(
+            image_reader,
+            rendy::texture::image::ImageTextureConfig {
+                generate_mips: true,
+                ..Default::default()
+            }
+        ).map_err(|e| {
+            log::error!("Unable to load image: {:?}", e);
+            hal::pso::CreationError::Other
+        })?;
+
+        let texture = texture_builder
+            .set_sampler_info(
+                rendy::resource::SamplerInfo::new(
+                    rendy::resource::Filter::Linear,
+                    rendy::resource::WrapMode::Tile
+                )
+            )
+            .build(
+                rendy::factory::ImageState {
+                    queue,
+                    stage: hal::pso::PipelineStage::FRAGMENT_SHADER,
+                    access: hal::image::Access::SHADER_READ,
+                    layout: hal::image::Layout::ShaderReadOnlyOptimal,
+                },
+                factory,
+            )
+            .unwrap();
 
         let frames = ctx.frames_in_flight as _;
         let align = factory
@@ -209,22 +276,43 @@ where
 
         let mut sets = Vec::new();
         for index in 0..frames {
+            let set = factory
+                .create_descriptor_set(set_layouts[0].clone())
+                .unwrap();
+
             unsafe {
-                let set = factory
-                    .create_descriptor_set(set_layouts[0].clone())
-                    .unwrap();
-                factory.write_descriptor_sets(Some(hal::pso::DescriptorSetWrite {
-                    set: set.raw(),
-                    binding: 0,
-                    array_offset: 0,
-                    descriptors: Some(hal::pso::Descriptor::Buffer(
-                        ubuf.raw(),
-                        Some(uniform_offset(index, align))
-                            ..Some(uniform_offset(index, align) + UNIFORM_SIZE),
-                    )),
-                }));
-                sets.push(set);
+                factory.write_descriptor_sets(vec![
+                    hal::pso::DescriptorSetWrite {
+                        set: set.raw(),
+                        binding: 0,
+                        array_offset: 0,
+                        descriptors: Some(hal::pso::Descriptor::Buffer(
+                            ubuf.raw(),
+                            Some(uniform_offset(index, align))
+                                ..Some(uniform_offset(index, align) + UNIFORM_SIZE),
+                        )),
+                    },
+                    hal::pso::DescriptorSetWrite {
+                        set: set.raw(),
+                        binding: 1,
+                        array_offset: 0,
+                        descriptors: Some(hal::pso::Descriptor::Image(
+                            texture.view().raw(),
+                            hal::image::Layout::ShaderReadOnlyOptimal,
+                        )),
+                    },
+                    hal::pso::DescriptorSetWrite {
+                        set: set.raw(),
+                        binding: 2,
+                        array_offset: 0,
+                        descriptors: Some(hal::pso::Descriptor::Sampler(
+                            texture.sampler().raw()
+                        )),
+                    },
+                ]);
             }
+
+            sets.push(set);
         }
 
         let mut mesh_count = 0;
@@ -246,6 +334,7 @@ where
             indirect_buf: icmdbuf,
             sets,
             mesh_count,
+            texture,
         })
     }
 }
@@ -286,7 +375,7 @@ where
 
             let mut index_count = 0;
             for mesh_i in 0..model.len() {
-                index_count += model.get(mesh_i).unwrap().indices.as_ref().unwrap().len();
+                index_count += model.get(mesh_i).unwrap().indices.len();
             }
             model_offsets.push((offset_v, offset_i, index_count as u32));
 
@@ -305,13 +394,13 @@ where
                         .upload_visible_buffer(
                             &mut self.index_buf,
                             index_offset(index, self.align, offset_i as u64),
-                            mesh.indices.as_ref().unwrap().as_slice(),
+                            mesh.indices.as_slice(),
                         )
                         .unwrap();
                 }
 
                 offset_v += mesh.len();
-                offset_i += mesh.indices.as_ref().unwrap().len() as u32;
+                offset_i += mesh.indices.len() as u32;
             }
         }
 

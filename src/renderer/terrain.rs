@@ -28,7 +28,7 @@ impl HeightMap {
         for y in 0..self.size {
             for x in 0..self.size {
                 let value = -(*self.data.get(y*self.size + x).unwrap());
-                res.push([x as f32 * 1.0, value * self.scale, y as f32 * 1.0].into());
+                res.push([x as f32, value * self.scale, y as f32].into());
             }
         }
 
@@ -42,6 +42,18 @@ impl HeightMap {
             for x in 0..self.size {
                 let value = *self.data.get(y*self.size + x).unwrap();
                 res.push([value, value, value, 1.0].into());
+            }
+        }
+
+        res
+    }
+
+    pub fn uvs(&self) -> Vec<rendy::mesh::TexCoord> {
+        let mut res = Vec::with_capacity(self.data.len());
+
+        for y in 0..self.size {
+            for x in 0..self.size {
+                res.push([x as f32 / 10.0, (self.size - y - 1) as f32 / 10.0].into());
             }
         }
 

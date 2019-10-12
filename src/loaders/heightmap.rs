@@ -17,7 +17,7 @@ pub fn mesh_from_bmp(path: &str, scale: f32) -> Result<Mesh, Error> {
     let mesh_builder = MeshBuilder::new()
         .with_indices(&heightmap.indices())
         .with_vertices(&heightmap.vertices())
-        .with_colors(&heightmap.colors());
+        .with_uvs(&heightmap.uvs());
 
     Ok(mesh_builder.build()?)
 }
