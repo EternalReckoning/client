@@ -103,7 +103,7 @@ pub struct TriangleRenderPipeline<B: hal::Backend> {
     model_buf: rendy::resource::Escape<rendy::resource::Buffer<B>>,
     indirect_buf: rendy::resource::Escape<rendy::resource::Buffer<B>>,
     sets: Vec<rendy::resource::Escape<rendy::resource::DescriptorSet<B>>>,
-    texture: rendy::texture::Texture<B>,
+    textures: Vec<(String, rendy::texture::Texture<B>)>,
     mesh_count: usize,
 }
 
@@ -185,42 +185,48 @@ where
         assert!(images.is_empty());
         assert_eq!(set_layouts.len(), 1);
 
-        let image_reader = BufReader::new(
-            File::open("assets/stone.png")
-                .map_err(|e| {
-                    log::error!("Unable to open {}: {:?}", "assets/stone.png", e);
-                    hal::pso::CreationError::Other
-                })?
-        );
+        let mut textures = Vec::new();
 
-        let mut texture_builder = rendy::texture::image::load_from_image(
-            image_reader,
-            rendy::texture::image::ImageTextureConfig {
-                generate_mips: true,
-                ..Default::default()
-            }
-        ).map_err(|e| {
-            log::error!("Unable to load image: {:?}", e);
-            hal::pso::CreationError::Other
-        })?;
+        for tex in &scene.textures {
+            let image_reader = BufReader::new(
+                File::open(&tex.path[..])
+                    .map_err(|e| {
+                        log::error!("Unable to open {}: {:?}", tex.path, e);
+                        hal::pso::CreationError::Other
+                    })?
+            );
 
-        let texture = texture_builder
-            .set_sampler_info(
-                rendy::resource::SamplerInfo::new(
-                    rendy::resource::Filter::Linear,
-                    rendy::resource::WrapMode::Tile
+            let mut texture_builder = rendy::texture::image::load_from_image(
+                image_reader,
+                rendy::texture::image::ImageTextureConfig {
+                    generate_mips: true,
+                    ..Default::default()
+                }
+            ).map_err(|e| {
+                log::error!("Unable to load image: {:?}", e);
+                hal::pso::CreationError::Other
+            })?;
+
+            let texture = texture_builder
+                .set_sampler_info(
+                    rendy::resource::SamplerInfo::new(
+                        rendy::resource::Filter::Linear,
+                        tex.wrap_mode
+                    )
                 )
-            )
-            .build(
-                rendy::factory::ImageState {
-                    queue,
-                    stage: hal::pso::PipelineStage::FRAGMENT_SHADER,
-                    access: hal::image::Access::SHADER_READ,
-                    layout: hal::image::Layout::ShaderReadOnlyOptimal,
-                },
-                factory,
-            )
-            .unwrap();
+                .build(
+                    rendy::factory::ImageState {
+                        queue,
+                        stage: hal::pso::PipelineStage::FRAGMENT_SHADER,
+                        access: hal::image::Access::SHADER_READ,
+                        layout: hal::image::Layout::ShaderReadOnlyOptimal,
+                    },
+                    factory,
+                )
+                .unwrap();
+            
+            textures.push((tex.path.clone(), texture));
+        }
 
         let frames = ctx.frames_in_flight as _;
         let align = factory
@@ -276,43 +282,45 @@ where
 
         let mut sets = Vec::new();
         for index in 0..frames {
-            let set = factory
-                .create_descriptor_set(set_layouts[0].clone())
-                .unwrap();
+            for (_, texture) in &textures {
+                let set = factory
+                    .create_descriptor_set(set_layouts[0].clone())
+                    .unwrap();
 
-            unsafe {
-                factory.write_descriptor_sets(vec![
-                    hal::pso::DescriptorSetWrite {
-                        set: set.raw(),
-                        binding: 0,
-                        array_offset: 0,
-                        descriptors: Some(hal::pso::Descriptor::Buffer(
-                            ubuf.raw(),
-                            Some(uniform_offset(index, align))
-                                ..Some(uniform_offset(index, align) + UNIFORM_SIZE),
-                        )),
-                    },
-                    hal::pso::DescriptorSetWrite {
-                        set: set.raw(),
-                        binding: 1,
-                        array_offset: 0,
-                        descriptors: Some(hal::pso::Descriptor::Image(
-                            texture.view().raw(),
-                            hal::image::Layout::ShaderReadOnlyOptimal,
-                        )),
-                    },
-                    hal::pso::DescriptorSetWrite {
-                        set: set.raw(),
-                        binding: 2,
-                        array_offset: 0,
-                        descriptors: Some(hal::pso::Descriptor::Sampler(
-                            texture.sampler().raw()
-                        )),
-                    },
-                ]);
+                unsafe {
+                    factory.write_descriptor_sets(vec![
+                        hal::pso::DescriptorSetWrite {
+                            set: set.raw(),
+                            binding: 0,
+                            array_offset: 0,
+                            descriptors: Some(hal::pso::Descriptor::Buffer(
+                                ubuf.raw(),
+                                Some(uniform_offset(index, align))
+                                    ..Some(uniform_offset(index, align) + UNIFORM_SIZE),
+                            )),
+                        },
+                        hal::pso::DescriptorSetWrite {
+                            set: set.raw(),
+                            binding: 1,
+                            array_offset: 0,
+                            descriptors: Some(hal::pso::Descriptor::Image(
+                                texture.view().raw(),
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            )),
+                        },
+                        hal::pso::DescriptorSetWrite {
+                            set: set.raw(),
+                            binding: 2,
+                            array_offset: 0,
+                            descriptors: Some(hal::pso::Descriptor::Sampler(
+                                texture.sampler().raw()
+                            )),
+                        },
+                    ]);
+                }
+
+                sets.push(set);
             }
-
-            sets.push(set);
         }
 
         let mut mesh_count = 0;
@@ -334,7 +342,7 @@ where
             indirect_buf: icmdbuf,
             sets,
             mesh_count,
-            texture,
+            textures,
         })
     }
 }
@@ -404,7 +412,6 @@ where
             }
         }
 
-        log::trace!("Vertices: {}; Indices: {}", offset_v, offset_i);
         assert!(offset_v < MAX_VERTEX_COUNT as u32);
         assert!(offset_i < MAX_INDEX_COUNT as u32);
 
@@ -453,6 +460,7 @@ where
         }
 
         if self.mesh_count != mesh_count {
+            log::trace!("Vertices: {}; Indices: {}", offset_v, offset_i);
             rendy::graph::render::PrepareResult::DrawRecord
         } else {
             rendy::graph::render::PrepareResult::DrawReuse
@@ -467,13 +475,6 @@ where
         scene: &Scene,
     ) {
         unsafe {
-            encoder.bind_graphics_descriptor_sets(
-                layout,
-                0,
-                Some(self.sets[index].raw()),
-                std::iter::empty(),
-            );
-
             encoder.bind_vertex_buffers(
                 0,
                 std::iter::once((self.vertex_buf.raw(), vertex_offset(index, self.align, 0)))
@@ -490,12 +491,29 @@ where
                 hal::IndexType::U32,
             );
 
-            encoder.draw_indexed_indirect(
-                self.indirect_buf.raw(),
-                indirect_offset(index, self.align, 0),
-                scene.objects.len() as u32,
-                INDIRECT_COMMAND_SIZE as u32,
-            );
+            for tex_i in 0..scene.textures.len() {
+                encoder.bind_graphics_descriptor_sets(
+                    layout,
+                    0,
+                    Some(self.sets[index * scene.textures.len() + tex_i].raw()),
+                    std::iter::empty(),
+                );
+
+                for obj_i in 0..scene.objects.len() {
+                    let obj = scene.objects.get(obj_i).unwrap();
+
+                    if obj.texture != Some(tex_i) {
+                        continue;
+                    }
+
+                    encoder.draw_indexed_indirect(
+                        self.indirect_buf.raw(),
+                        indirect_offset(index, self.align, obj_i as u64),
+                        1,
+                        INDIRECT_COMMAND_SIZE as u32,
+                    );
+                }
+            }
         }
     }
 

@@ -6,6 +6,7 @@ mod movement;
 mod name;
 mod position;
 mod serverid;
+mod texture;
 mod velocity;
 
 pub use collider::Collider;
@@ -16,4 +17,5 @@ pub use movement::Movement;
 pub use name::Name;
 pub use position::Position;
 pub use serverid::ServerID;
+pub use texture::Texture;
 pub use velocity::Velocity;

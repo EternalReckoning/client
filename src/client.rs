@@ -152,6 +152,7 @@ fn run(
                                         scene.objects.push(renderer::scene::Object {
                                             id: entity,
                                             model: None,
+                                            texture: None,
                                             position
                                         });
                                     }
@@ -161,6 +162,9 @@ fn run(
                                 },
                                 event::UpdateEvent::ModelUpdate(event::ModelUpdate { entity, ref path, offset }) => {
                                     scene.set_model(entity, path, offset);
+                                },
+                                event::UpdateEvent::TextureUpdate(event::TextureUpdate { entity, ref path }) => {
+                                    scene.set_texture(entity, path);
                                 },
                             };
                         },
@@ -233,6 +237,12 @@ pub fn main(config: config::Config) -> Result<(), Error> {
         camera: renderer::scene::Camera::new(aspect, config.client.field_of_view),
         ui: renderer::scene::UI::new(aspect),
         models: vec![terrain],
+        textures: vec![
+            renderer::Texture {
+                path: "assets/stone.png".to_string(),
+                wrap_mode: rendy::resource::WrapMode::Tile,
+            },
+        ],
         objects: Vec::new(),
     };
 

@@ -13,6 +13,7 @@ pub struct UI {
 pub struct Object {
     pub id: specs::Entity,
     pub model: Option<usize>,
+    pub texture: Option<usize>,
     pub position: nalgebra::Similarity3<f32>,
 }
 
@@ -22,6 +23,7 @@ pub struct Scene {
     pub ui: UI,
     pub models: Vec<super::Model>,
     pub objects: Vec<Object>,
+    pub textures: Vec<super::Texture>,
 }
 
 impl Camera {
@@ -80,6 +82,27 @@ impl Scene {
         }
     }
 
+    pub fn set_texture(
+        &mut self,
+        id: specs::Entity,
+        path: &String,
+    ) -> bool
+    {
+        match self.object_by_id(id) {
+            Some(index) => {
+                let texture = self.get_texture(path);
+                if texture.is_none() {
+                    return false;
+                }
+                let texture = texture.unwrap();
+                let object = self.objects.get_mut(index).unwrap();
+                object.texture = Some(texture);
+                return true;
+            },
+            _ => false,
+        }
+    }
+
     pub fn set_position(
         &mut self,
         id: specs::Entity,
@@ -130,5 +153,21 @@ impl Scene {
         }
         self.models.push(model);
         self.models.len() - 1
+    }
+
+    fn get_texture(
+        &self,
+        path: &String
+    ) -> Option<usize>
+    {
+        for i in 0..self.textures.len() {
+            let tex = self.textures.get(i).unwrap();
+
+            if &tex.path == path {
+                return Some(i);
+            }
+        }
+
+        None
     }
 }

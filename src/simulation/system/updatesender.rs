@@ -8,6 +8,7 @@ use super::super::{
         Model,
         Position,
         ServerID,
+        Texture,
     },
     event::{
         Update,
@@ -15,6 +16,7 @@ use super::super::{
         PositionUpdate,
         CameraUpdate,
         ModelUpdate,
+        TextureUpdate,
     },
     resource::{
         ActiveCamera,
@@ -43,10 +45,11 @@ impl<'a> System<'a> for UpdateSender {
         ReadStorage<'a, Model>,
         ReadStorage<'a, Position>,
         ReadStorage<'a, ServerID>,
+        ReadStorage<'a, Texture>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (entities, camera, character, model, pos, id) = data;
+        let (entities, camera, character, model, pos, id, texture) = data;
 
         let time = std::time::Instant::now();
 
@@ -95,6 +98,22 @@ impl<'a> System<'a> for UpdateSender {
                         entity: ent,
                         path: model.path.clone(),
                         offset: model.offset,
+                    }
+                ),
+                time,
+            };
+
+            self.sender.send(event).unwrap_or_else(|err| {
+                log::error!("failed to send update event: {}", err);
+            });
+        }
+
+        for (ent, tex) in (&entities, &texture).join() {
+            let event = Update {
+                event: UpdateEvent::TextureUpdate(
+                    TextureUpdate {
+                        entity: ent,
+                        path: tex.path.clone(),
                     }
                 ),
                 time,

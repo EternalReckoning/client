@@ -31,6 +31,7 @@ pub enum UpdateEvent {
     CameraUpdate(CameraUpdate),
     ModelUpdate(ModelUpdate),
     PositionUpdate(PositionUpdate),
+    TextureUpdate(TextureUpdate),
 }
 
 #[derive(Clone)]
@@ -41,6 +42,12 @@ pub struct ModelUpdate {
     pub entity: specs::Entity,
     pub path: String,
     pub offset: Option<nalgebra::Vector3<f32>>,
+}
+
+#[derive(Clone)]
+pub struct TextureUpdate {
+    pub entity: specs::Entity,
+    pub path: String,
 }
 
 #[derive(Clone)]
