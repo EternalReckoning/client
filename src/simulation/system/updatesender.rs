@@ -26,14 +26,14 @@ use super::super::{
 
 pub struct UpdateSender {
     sender: Sender<Update>,
-    net_sender: UnboundedSender<Update>,
+    net_sender: Option<UnboundedSender<Update>>,
 }
 
 impl UpdateSender {
     pub fn new(sender: Sender<Update>, net_sender: UnboundedSender<Update>)
         -> UpdateSender
     {
-        UpdateSender { sender, net_sender }
+        UpdateSender { sender, net_sender: Some(net_sender) }
     }
 }
 
@@ -52,6 +52,8 @@ impl<'a> System<'a> for UpdateSender {
         let (entities, camera, character, model, pos, id, texture) = data;
 
         let time = std::time::Instant::now();
+
+        // TODO: main loop sender hangup should be fatal
 
         for (ent, pos) in (&entities, &pos).join() {
             if Some(ent) == camera.0 {
@@ -84,10 +86,13 @@ impl<'a> System<'a> for UpdateSender {
                 log::error!("failed to send update event: {}", err);
             });
 
-            if character.0.is_some() && ent == character.0.unwrap() {
-                self.net_sender.unbounded_send(event).unwrap_or_else(|err| {
-                    log::error!("failed to send update event: {}", err);
-                });
+            if let Some(net_sender) = &self.net_sender {
+                if character.0.is_some() && ent == character.0.unwrap() {
+                    net_sender.unbounded_send(event).unwrap_or_else(|err| {
+                        log::error!("failed to send update event: {}", err);
+                        self.net_sender = None;
+                    });
+                }
             }
         }
 
