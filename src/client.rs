@@ -7,6 +7,7 @@ use futures::sync::mpsc::unbounded;
 
 use crate::{
     eventloop,
+    iohandler,
     networking,
     renderer::{
         Renderer,
@@ -37,6 +38,10 @@ pub fn main(config: config::Config) -> Result<(), Error> {
     let (net_update_tx, net_update_rx) = unbounded();
     let (main_update_tx, main_update_rx) = channel();
 
+    log::info!("Creating window...");
+
+    let window = Window::new(&config.display)?;
+
     log::info!("Initializing networking");
     
     let net_event_tx = event_tx.clone();
@@ -47,6 +52,15 @@ pub fn main(config: config::Config) -> Result<(), Error> {
             net_update_rx,
             net_event_tx
         );
+        log::info!("Networking closed");
+    });
+
+    log::info!("Initializing IO");
+
+    let (iohandler, io_channel) = iohandler::IOHandler::new();
+    thread::spawn(move || {
+        iohandler.run();
+        log::info!("IO closed");
     });
     
     log::info!("Initializing simulation");
@@ -64,11 +78,8 @@ pub fn main(config: config::Config) -> Result<(), Error> {
             tick_length
         );
         game.run(event_rx, tick_length);
+        log::info!("Simulation closed");
     });
-
-    log::info!("Creating window...");
-
-    let window = Window::new(&config.display)?;
 
     log::info!("Initializing rendering pipeline...");
 
@@ -76,5 +87,5 @@ pub fn main(config: config::Config) -> Result<(), Error> {
 
     log::info!("Entering main loop");
     
-    eventloop::run(window, renderer, config, event_tx, main_update_rx)
+    eventloop::run(window, renderer, config, event_tx, main_update_rx, io_channel)
 }

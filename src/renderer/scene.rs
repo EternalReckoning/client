@@ -119,6 +119,20 @@ impl Scene {
         }
     }
 
+    pub fn get_model<'a>(
+        &'a self,
+        path: &str,
+    ) -> Option<&'a super::Model>
+    {
+        for i in 0..self.models.len() {
+            let model = self.models.get(i).unwrap();
+            if &model.path == path {
+                return Some(&model);
+            }
+        }
+        None
+    }
+
     fn object_by_id(&self, id: specs::Entity) -> Option<usize> {
         for i in 0..self.objects.len() {
             let object = self.objects.get(i).unwrap();

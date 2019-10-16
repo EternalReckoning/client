@@ -9,6 +9,7 @@ use rendy::wsi::winit;
 use crate::{
     input,
     input::InputTypes,
+    iohandler,
     renderer::{
         Renderer,
         scene::Object,
@@ -24,6 +25,7 @@ pub fn run(
     config: config::Config,
     event_tx: Sender<event::Event>,
     update_rx: Receiver<event::Update>,
+    io_channel: (Sender<iohandler::Request>, Receiver<iohandler::Response>),
 ) -> Result<(), Error> {
     let mut key_map = std::collections::HashMap::<u32, InputTypes>::new();
     key_map.insert(config.key_map.move_forward, InputTypes::MoveForward);
@@ -32,6 +34,7 @@ pub fn run(
     key_map.insert(config.key_map.move_right, InputTypes::MoveRight);
     key_map.insert(config.key_map.move_up, InputTypes::MoveUp);
 
+    let (io_tx, io_rx) = io_channel;
     let mut renderer = Some(renderer);
 
     let mouse_sens = input::MouseSensitivity::new(config.mouse.sensitivity);
@@ -129,6 +132,13 @@ pub fn run(
                                         camera_pos = position;
                                     },
                                     event::UpdateEvent::ModelUpdate(event::ModelUpdate { entity, ref path, offset }) => {
+                                        if scene.get_model(&path[..]).is_none() {
+                                            io_tx.send(iohandler::Request::LoadModel(path.to_string()))
+                                                .unwrap_or_else(|err| {
+                                                    log::error!("IO handler not available: {}", err);
+                                                    *control_flow = winit::event_loop::ControlFlow::Exit;
+                                                });
+                                        }
                                         scene.set_model(entity, path, offset);
                                     },
                                     event::UpdateEvent::TextureUpdate(event::TextureUpdate { entity, ref path }) => {
@@ -161,13 +171,35 @@ pub fn run(
             _ => {},
         }
 
-        // TODO: do io outside the rendering thread
-        if let Some(renderer) = &mut renderer {
-            for model in &mut renderer.get_scene().models {
-                if model.len() == 0 {
-                    model.load().unwrap_or_else(|err| log::error!("Error: {}", err));
-                }
-            }
+        // TODO: nested so deep...
+        loop {
+            match io_rx.try_recv() {
+                Ok(io_result) => {
+                    match io_result {
+                        iohandler::Response::ModelLoaded(data) => {
+                            if let Some(renderer) = &mut renderer {
+                                let mut meshes = data.meshes;
+                                for model in &mut renderer.get_scene().models {
+                                    if model.path == data.path {
+                                        loop {
+                                            match meshes.pop() {
+                                                Some(mesh) => model.add_mesh(
+                                                    nalgebra::Point3::new(0.0, 0.0, 0.0),
+                                                    mesh
+                                                ),
+                                                None => break,
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        // TODO
+                        iohandler::Response::Error => (),
+                    }
+                },
+                Err(_) => break,
+            };
         }
 
         if *control_flow == winit::event_loop::ControlFlow::Exit && renderer.is_some() {

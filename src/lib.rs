@@ -1,10 +1,11 @@
 pub mod eventloop;
-pub mod util;
 pub mod input;
+pub mod iohandler;
 pub mod loaders;
 pub mod networking;
 pub mod renderer;
 pub mod simulation;
+pub mod util;
 
 mod client;
 
