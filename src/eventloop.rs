@@ -1,0 +1,180 @@
+use std::sync::mpsc::{
+    Sender,
+    Receiver,
+};
+
+use failure::Error;
+use rendy::wsi::winit;
+
+use crate::{
+    input,
+    input::InputTypes,
+    renderer::{
+        Renderer,
+        scene::Object,
+        window::Window,
+    },
+    simulation::event,
+    util::config,
+};
+
+pub fn run(
+    window: Window,
+    renderer: Renderer,
+    config: config::Config,
+    event_tx: Sender<event::Event>,
+    update_rx: Receiver<event::Update>,
+) -> Result<(), Error> {
+    let mut key_map = std::collections::HashMap::<u32, InputTypes>::new();
+    key_map.insert(config.key_map.move_forward, InputTypes::MoveForward);
+    key_map.insert(config.key_map.move_left, InputTypes::MoveLeft);
+    key_map.insert(config.key_map.move_backward, InputTypes::MoveBackward);
+    key_map.insert(config.key_map.move_right, InputTypes::MoveRight);
+    key_map.insert(config.key_map.move_up, InputTypes::MoveUp);
+
+    let mut renderer = Some(renderer);
+
+    let mouse_sens = input::MouseSensitivity::new(config.mouse.sensitivity);
+    let mut mouse_euler = input::MouseEuler::default();
+    let mut camera_pos = nalgebra::Point3::<f64>::new(0.0, 0.0, 0.0);
+    let mut mouse_look = false;
+
+    window.run(move |event, _, control_flow| {
+        *control_flow = winit::event_loop::ControlFlow::Poll;
+
+        match event {
+            winit::event::Event::WindowEvent { event, .. } => match event {
+                winit::event::WindowEvent::CloseRequested => {
+                    *control_flow = winit::event_loop::ControlFlow::Exit;
+                },
+                winit::event::WindowEvent::KeyboardInput { input, .. } => {
+                    log::trace!(
+                        "Keyboard input: {} {}",
+                        input.scancode,
+                        match input.state {
+                            winit::event::ElementState::Pressed => "pressed",
+                            winit::event::ElementState::Released => "released",
+                        }
+                    );
+
+                    if input.scancode == 1 {
+                        *control_flow = winit::event_loop::ControlFlow::Exit;
+                    }
+
+                    if let Some(action) = key_map.get(&input.scancode) {
+                        let event = match input.state {
+                            winit::event::ElementState::Pressed => {
+                                event::InputEvent::KeyDown(*action)
+                            },
+                            winit::event::ElementState::Released => {
+                                event::InputEvent::KeyUp(*action)
+                            },
+                        };
+                        event_tx.send(event::Event::InputEvent(event)).unwrap();
+                    }
+                },
+                winit::event::WindowEvent::MouseInput { button, state, .. } => {
+                    log::trace!(
+                        "Mouse input: {:?} button {}",
+                        button,
+                        match state {
+                            winit::event::ElementState::Pressed => "pressed",
+                            winit::event::ElementState::Released => "released",
+                        },
+                    );
+
+                    if button == winit::event::MouseButton::Right {
+                        mouse_look = state == winit::event::ElementState::Pressed;
+                    }
+                },
+                _ => {},
+            },
+            winit::event::Event::DeviceEvent { event, .. } => match event {
+                winit::event::DeviceEvent::MouseMotion { delta } => {
+                    if mouse_look {
+                        mouse_euler.update(delta, &mouse_sens);
+                        let event = event::InputEvent::CameraAngle(mouse_euler.clone());
+                        event_tx.send(event::Event::InputEvent(event)).unwrap();
+                    }
+                },
+                _ => {},
+            },
+            winit::event::Event::EventsCleared => {
+                if let Some(renderer) = &mut renderer {
+                    let scene = renderer.get_scene();
+
+                    loop {
+                        let update = update_rx.try_recv();
+                        match update {
+                            Ok(e) => {
+                                match e.event {
+                                    event::UpdateEvent::PositionUpdate(event::PositionUpdate { entity, position, .. }) => {
+                                        let position = nalgebra::Similarity3::<f32>::identity() * 
+                                            nalgebra::Translation3::new(
+                                                position.x as f32,
+                                                position.y as f32,
+                                                position.z as f32
+                                            );
+
+                                        if !scene.set_position(entity, position.clone()) {
+                                            scene.objects.push(Object {
+                                                id: entity,
+                                                model: None,
+                                                texture: None,
+                                                position
+                                            });
+                                        }
+                                    },
+                                    event::UpdateEvent::CameraUpdate(event::CameraUpdate(position)) => {
+                                        camera_pos = position;
+                                    },
+                                    event::UpdateEvent::ModelUpdate(event::ModelUpdate { entity, ref path, offset }) => {
+                                        scene.set_model(entity, path, offset);
+                                    },
+                                    event::UpdateEvent::TextureUpdate(event::TextureUpdate { entity, ref path }) => {
+                                        scene.set_texture(entity, path);
+                                    },
+                                };
+                            },
+                            Err(_) => break,
+                        }
+                    }
+
+                    let rotation = nalgebra::Rotation3::from_euler_angles(
+                        mouse_euler.pitch as f32,
+                        mouse_euler.yaw as f32,
+                        0.0,
+                    );
+                    let position = nalgebra::Translation3::new(
+                        camera_pos.x as f32,
+                        camera_pos.y as f32,
+                        camera_pos.z as f32
+                    );
+                    let translation = nalgebra::Translation3::<f32>::new(0.0, 0.0, 10.0);
+                    scene.camera.set_view(
+                        nalgebra::Projective3::identity() * position * rotation * translation
+                    );
+
+                    renderer.display();
+                }
+            },
+            _ => {},
+        }
+
+        // TODO: do io outside the rendering thread
+        if let Some(renderer) = &mut renderer {
+            for model in &mut renderer.get_scene().models {
+                if model.len() == 0 {
+                    model.load().unwrap_or_else(|err| log::error!("Error: {}", err));
+                }
+            }
+        }
+
+        if *control_flow == winit::event_loop::ControlFlow::Exit && renderer.is_some() {
+            log::info!("Exiting...");
+            renderer.take();
+        }
+    });
+
+    Ok(())
+}

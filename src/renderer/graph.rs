@@ -6,9 +6,13 @@ use rendy::{
     hal,
 };
 
-use super::scene::Scene;
-use super::pipeline::mesh::TriangleRenderPipeline;
-use super::pipeline::ui::SpriteGraphicsPipeline;
+use super::{
+    pipeline::{
+        mesh::TriangleRenderPipeline,
+        ui::SpriteGraphicsPipeline,
+    },
+    scene::Scene,
+};
 
 pub struct RenderGraph<B: hal::Backend> {
     graph: rendy::graph::Graph<B, Scene>,
@@ -22,7 +26,7 @@ where
         mut factory: &mut rendy::factory::Factory<B>,
         mut families: &mut rendy::command::Families<B>,
         mut scene: &mut Scene,
-        window: &crate::window::Window,
+        window: &super::window::Window,
     ) -> RenderGraph<B> {
         let surface = window.create_surface(&mut factory);
 

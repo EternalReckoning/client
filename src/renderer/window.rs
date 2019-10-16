@@ -4,27 +4,10 @@ use failure::{
 };
 use rendy::wsi::winit;
 
-#[derive(serde::Serialize, serde::Deserialize)]
-#[serde(default, rename_all = "kebab-case")]
-pub struct DisplayConfig {
-    pub display_mode: DisplayMode,
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum DisplayMode {
-    Windowed,
-    Borderless,
-    Fullscreen,
-}
-
-impl Default for DisplayConfig {
-    fn default() -> DisplayConfig {
-        DisplayConfig {
-            display_mode: DisplayMode::Windowed,
-        }
-    }
-}
+use super::config::{
+    DisplayConfig,
+    DisplayMode,
+};
 
 pub struct Window {
     window: winit::window::Window,

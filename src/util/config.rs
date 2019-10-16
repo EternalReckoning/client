@@ -6,7 +6,7 @@ use crate::client::ClientConfig;
 use crate::input::MouseConfig;
 use crate::input::KeyMapConfig;
 use crate::simulation::SimulationConfig;
-use crate::window::DisplayConfig;
+use crate::renderer::DisplayConfig;
 
 #[derive(Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
