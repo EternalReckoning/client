@@ -53,7 +53,7 @@ impl HeightMap {
 
         for y in 0..self.size {
             for x in 0..self.size {
-                res.push([x as f32 / 10.0, (self.size - y - 1) as f32 / 10.0].into());
+                res.push([x as f32 / 7.5, (self.size - y - 1) as f32 / 7.5].into());
             }
         }
 

@@ -112,25 +112,27 @@ pub fn build_simulation<'a, 'b>(
         .with(Movement { speed: config.movement_speed, on_ground: true })
         .with(Jump { force: config.jump_force })
         .with(Collider::new(collider::ColliderType::Sphere(1.0)))
-        /*.with(Model {
+        .with(Model {
             path: "assets/marker.erm".to_string(),
             offset: Some(nalgebra::Vector3::new(0.0, 1.0, 0.0))
-        })*/
+        })
+        .with(Texture::new("assets/marker.png"))
         .build();
 
     world.insert(ActiveCamera(Some(player)));
     world.insert(ActiveCharacter(Some(player)));
 
-    /*
     world.create_entity()
         .with(Position(nalgebra::Point3::new(-8.0, -1.1, 16.0)))
         .with(Model {
             path: "assets/pillar.erm".to_string(),
             offset: Some(nalgebra::Vector3::new(0.0, 1.0, 0.0))
         })
+        .with(Texture::new("assets/pillar.png"))
         .with(Collider::new(collider::ColliderType::Sphere(1.0)))
         .build();
 
+    /*
     world.create_entity()
         .with(Position(nalgebra::Point3::new(-11.0, -0.8, 13.0)))
         .with(Model {
@@ -139,6 +141,7 @@ pub fn build_simulation<'a, 'b>(
         })
         .with(Collider::new(collider::ColliderType::Sphere(0.5)))
         .build();
+    */
 
     world.create_entity()
         .with(Position(nalgebra::Point3::new(-14.0, -1.2, 10.0)))
@@ -146,9 +149,9 @@ pub fn build_simulation<'a, 'b>(
             path: "assets/pillar.erm".to_string(),
             offset: Some(nalgebra::Vector3::new(0.0, 1.0, 0.0))
         })
+        .with(Texture::new("assets/pillar.png"))
         .with(Collider::new(collider::ColliderType::Sphere(1.0)))
         .build();
-    */
 
     let dispatcher = DispatcherBuilder::new()
         .with(UpdateInputs, "update_inputs", &[])

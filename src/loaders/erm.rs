@@ -42,6 +42,12 @@ struct VertexColor {
 }
 
 #[repr(C)]
+struct UV {
+    u: f64,
+    v: f64,
+}
+
+#[repr(C)]
 struct Index(u64);
 
 pub fn meshes_from_erm(path: &str) -> Result<Vec<Mesh>, failure::Error> {
@@ -86,6 +92,9 @@ fn mesh_from_erm(reader: &mut std::io::BufReader<std::fs::File>, index_offset: u
     let mut index: Index = unsafe { std::mem::zeroed() };
     let index_size = std::mem::size_of::<Index>();
 
+    let mut uv: UV = unsafe { std::mem::zeroed() };
+    let uv_size = std::mem::size_of::<UV>();
+
     unsafe {
         let object_header_slice = std::slice::from_raw_parts_mut(
             &mut object_header as *mut _ as *mut u8,
@@ -97,6 +106,7 @@ fn mesh_from_erm(reader: &mut std::io::BufReader<std::fs::File>, index_offset: u
     let mut vertices = Vec::with_capacity(object_header.vertex_count as usize);
     let mut colors = Vec::<rendy::mesh::Color>::with_capacity(object_header.index_count as usize);
     let mut indices = Vec::with_capacity(object_header.index_count as usize);
+    let mut uvs: Vec<rendy::mesh::TexCoord> = Vec::with_capacity(object_header.index_count as usize);
 
     for _vertex_index in 0..object_header.vertex_count {
         unsafe {
@@ -113,8 +123,6 @@ fn mesh_from_erm(reader: &mut std::io::BufReader<std::fs::File>, index_offset: u
             vertex.z as f32,
         ].into());
     }
-    
-    mesh_builder = mesh_builder.with_vertices(&vertices);
 
     if object_header.flags.contains(ObjectFlags::HAS_COLORS) {
         let mut color: VertexColor = unsafe { std::mem::zeroed() };
@@ -149,6 +157,22 @@ fn mesh_from_erm(reader: &mut std::io::BufReader<std::fs::File>, index_offset: u
         indices.push(index.0 as u32);
     }
 
+    for _uv_index in 0..object_header.index_count {
+        unsafe {
+            let uv_slice = std::slice::from_raw_parts_mut(
+                &mut uv as *mut _ as *mut u8,
+                uv_size,
+            );
+            reader.read_exact(uv_slice)?;
+        }
+
+        // TODO
+        // UVs need to be flipped, probably due to vertex Y-axis flipping in export script.
+        // The export script should be fixed instead...
+        let texcoord: rendy::mesh::TexCoord = [uv.u as f32, 1.0 - uv.v as f32].into();
+        uvs.push(texcoord);
+    }
+
     if object_header.flags.contains(ObjectFlags::HAS_COLORS) {
         let mut reorder_colors = Vec::with_capacity(object_header.vertex_count as usize);
         for index in 0..(object_header.vertex_count as u32) {
@@ -163,7 +187,25 @@ fn mesh_from_erm(reader: &mut std::io::BufReader<std::fs::File>, index_offset: u
         mesh_builder = mesh_builder.with_colors(&reorder_colors);
     }
 
+    let (vertices, indices) = unroll_verts(vertices, indices);
+    
+    mesh_builder = mesh_builder.with_vertices(&vertices);
     mesh_builder = mesh_builder.with_indices(&indices);
+    mesh_builder = mesh_builder.with_uvs(&uvs);
 
     Ok(mesh_builder.build()?)
+}
+
+fn unroll_verts(
+    vertices: Vec::<rendy::mesh::Position>,
+    mut indices: Vec::<u32>,
+) -> (Vec::<rendy::mesh::Position>, Vec::<u32>)
+{
+    let mut reorder_verts = Vec::with_capacity(indices.len());
+    for index in 0..(indices.len()) {
+        let vert_index = indices.get_mut(index).unwrap();
+        reorder_verts.push(*vertices.get(*vert_index as usize).unwrap());
+        *vert_index = index as u32;
+    }
+    (reorder_verts, indices)
 }

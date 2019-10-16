@@ -3,6 +3,7 @@ use specs::prelude::*;
 use crate::simulation::PhysicsConfig;
 use crate::simulation::{
     component::{
+        Movement,
         Position,
         Velocity,
     },
@@ -26,19 +27,28 @@ impl Physics {
 
 impl<'a> System<'a> for Physics {
     type SystemData = (
+        Entities<'a>,
         WriteStorage<'a, Position>,
         WriteStorage<'a, Velocity>,
+        ReadStorage<'a, Movement>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (mut pos, mut vel) = data;
+        let (ent, mut pos, mut vel, mov) = data;
 
-        for (pos, vel) in (&mut pos, &mut vel).join() {
+        for (ent, pos, vel) in (&ent, &mut pos, &mut vel).join() {
             pos.0 += vel.0;
 
             vel.0.x *= self.horisontal_drag_coeff;
             vel.0.y *= self.vertical_drag_coeff;
             vel.0.z *= self.horisontal_drag_coeff;
+
+            if let Some(mov) = mov.get(ent) {
+                if mov.on_ground {
+                    // skip applying gravity for on-ground player
+                    continue;
+                }
+            }
 
             vel.0 += self.gravity;
         }

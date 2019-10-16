@@ -199,6 +199,7 @@ where
             let mut texture_builder = rendy::texture::image::load_from_image(
                 image_reader,
                 rendy::texture::image::ImageTextureConfig {
+                    format: tex.format,
                     generate_mips: true,
                     ..Default::default()
                 }
@@ -207,12 +208,21 @@ where
                 hal::pso::CreationError::Other
             })?;
 
+            let filter = rendy::resource::Filter::Linear;
             let texture = texture_builder
                 .set_sampler_info(
-                    rendy::resource::SamplerInfo::new(
-                        rendy::resource::Filter::Linear,
-                        tex.wrap_mode
-                    )
+                    rendy::resource::SamplerInfo {
+                        min_filter: filter,
+                        mag_filter: filter,
+                        mip_filter: filter,
+                        wrap_mode: (tex.wrap_mode, tex.wrap_mode, tex.wrap_mode),
+                        lod_bias: rendy::resource::Lod::ZERO,
+                        lod_range: rendy::resource::Lod::ZERO .. rendy::resource::Lod::MAX,
+                        comparison: None,
+                        border: rendy::resource::PackedColor(0),
+                        normalized: true,
+                        anisotropic: rendy::resource::Anisotropic::On(4),
+                    }
                 )
                 .build(
                     rendy::factory::ImageState {

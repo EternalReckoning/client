@@ -237,10 +237,22 @@ pub fn main(config: config::Config) -> Result<(), Error> {
         camera: renderer::scene::Camera::new(aspect, config.client.field_of_view),
         ui: renderer::scene::UI::new(aspect),
         models: vec![terrain],
+        // TODO: remove the need to hardcode textures here
         textures: vec![
             renderer::Texture {
                 path: "assets/stone.png".to_string(),
                 wrap_mode: rendy::resource::WrapMode::Tile,
+                format: None,
+            },
+            renderer::Texture {
+                path: "assets/marker.png".to_string(),
+                wrap_mode: rendy::resource::WrapMode::Clamp,
+                format: None,
+            },
+            renderer::Texture {
+                path: "assets/pillar.png".to_string(),
+                wrap_mode: rendy::resource::WrapMode::Clamp,
+                format: None,
             },
         ],
         objects: Vec::new(),
