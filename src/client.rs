@@ -9,7 +9,7 @@ use crate::{
     eventloop,
     iohandler,
     networking,
-    renderer::{
+    display::{
         Renderer,
         window::Window,
     },

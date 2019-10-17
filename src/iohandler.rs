@@ -8,7 +8,7 @@ use failure::Error;
 
 use crate::{
     loaders::meshes_from_erm,
-    renderer::Mesh,
+    display::Mesh,
 };
 
 pub enum Request {

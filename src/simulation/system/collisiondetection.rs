@@ -11,7 +11,7 @@ use crate::simulation::{
         Position,
     },
 };
-use crate::renderer::terrain::HeightMap;
+use crate::display::terrain::HeightMap;
 
 pub struct CollisionDetection {
     min_collision_depth: f64,

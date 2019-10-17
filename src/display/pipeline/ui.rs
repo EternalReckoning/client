@@ -13,7 +13,7 @@ use rendy::{
 
 use std::{fs::File, io::BufReader};
 
-use crate::renderer::scene::Scene;
+use crate::display::scene::Scene;
 
 lazy_static::lazy_static! {
     static ref VERTEX: rendy::shader::SpirvShader = rendy::shader::SourceShaderInfo::new(

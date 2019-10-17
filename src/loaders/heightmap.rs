@@ -3,7 +3,7 @@ use failure::{
     format_err,
 };
 
-use crate::renderer::{
+use crate::display::{
     terrain::HeightMap,
     mesh::{
         Mesh,

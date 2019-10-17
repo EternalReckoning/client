@@ -3,7 +3,7 @@ use std::io::Read;
 use bitflags::bitflags;
 use failure::format_err;
 
-use crate::renderer::{
+use crate::display::{
     Mesh,
     mesh::MeshBuilder,
 };

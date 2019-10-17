@@ -3,7 +3,7 @@ pub mod input;
 pub mod iohandler;
 pub mod loaders;
 pub mod networking;
-pub mod renderer;
+pub mod display;
 pub mod simulation;
 pub mod util;
 

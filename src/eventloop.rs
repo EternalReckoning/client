@@ -10,7 +10,7 @@ use crate::{
     input,
     input::InputTypes,
     iohandler,
-    renderer::{
+    display::{
         Renderer,
         scene::Object,
         window::Window,

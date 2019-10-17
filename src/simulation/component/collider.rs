@@ -1,6 +1,6 @@
 use specs::prelude::*;
 
-use crate::renderer::terrain::HeightMap;
+use crate::display::terrain::HeightMap;
 
 pub struct Collider {
     pub collider: ColliderType,
