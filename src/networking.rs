@@ -195,8 +195,8 @@ impl Future for WriteConnection {
                 WriteConnectionState::Connected => {
                     match self.update_rx.poll() {
                         Ok(Async::Ready(Some(update))) => {
-                            match update.event {
-                                simulation::event::UpdateEvent::PositionUpdate(data) => {
+                            match update {
+                                simulation::event::Update::PositionUpdate(data) => {
                                     self.send(Operation::ClMoveSetPosition(
                                         operation::ClMoveSetPosition {
                                             pos: data.position.clone(),

@@ -37,6 +37,7 @@ impl Renderer {
         );
 
         let aspect = window.get_aspect_ratio() as f32;
+        let time = std::time::Instant::now();
 
         let mut scene = scene::Scene {
             camera: scene::Camera::new(aspect, config.field_of_view),
@@ -61,6 +62,7 @@ impl Renderer {
                 },
             ],
             objects: Vec::new(),
+            ticks: [time, time],
         };
 
         let graph = Some(RenderGraph::new(

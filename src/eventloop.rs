@@ -39,7 +39,6 @@ pub fn run(
 
     let mouse_sens = input::MouseSensitivity::new(config.mouse.sensitivity);
     let mut mouse_euler = input::MouseEuler::default();
-    let mut camera_pos = nalgebra::Point3::<f64>::new(0.0, 0.0, 0.0);
     let mut mouse_look = false;
 
     window.run(move |event, _, control_flow| {
@@ -110,28 +109,37 @@ pub fn run(
                         let update = update_rx.try_recv();
                         match update {
                             Ok(e) => {
-                                match e.event {
-                                    event::UpdateEvent::PositionUpdate(event::PositionUpdate { entity, position, .. }) => {
-                                        let position = nalgebra::Similarity3::<f32>::identity() * 
-                                            nalgebra::Translation3::new(
+                                match e {
+                                    event::Update::PositionUpdate(event::PositionUpdate { entity, position, .. }) => {
+                                        let position = nalgebra::Point3::new(
                                                 position.x as f32,
                                                 position.y as f32,
                                                 position.z as f32
                                             );
 
                                         if !scene.set_position(entity, position.clone()) {
-                                            scene.objects.push(Object {
-                                                id: entity,
-                                                model: None,
-                                                texture: None,
-                                                position
-                                            });
+                                            scene.objects.push(Object::new(
+                                                entity,
+                                                nalgebra::Similarity3::<f32>::identity() *
+                                                    nalgebra::Translation3::<f32>::new(
+                                                        position.x,
+                                                        position.y,
+                                                        position.z
+                                                    )
+                                            ));
                                         }
                                     },
-                                    event::UpdateEvent::CameraUpdate(event::CameraUpdate(position)) => {
-                                        camera_pos = position;
+                                    event::Update::CameraUpdate(event::CameraUpdate(position)) => {
+                                        scene.camera.set_position(
+                                            nalgebra::Point3::<f32>::new(
+                                                position.x as f32,
+                                                position.y as f32,
+                                                position.z as f32
+                                            ),
+                                            true
+                                        );
                                     },
-                                    event::UpdateEvent::ModelUpdate(event::ModelUpdate { entity, ref path, offset }) => {
+                                    event::Update::ModelUpdate(event::ModelUpdate { entity, ref path, offset }) => {
                                         if scene.get_model(&path[..]).is_none() {
                                             io_tx.send(iohandler::Request::LoadModel(path.to_string()))
                                                 .unwrap_or_else(|err| {
@@ -141,8 +149,12 @@ pub fn run(
                                         }
                                         scene.set_model(entity, path, offset);
                                     },
-                                    event::UpdateEvent::TextureUpdate(event::TextureUpdate { entity, ref path }) => {
+                                    event::Update::TextureUpdate(event::TextureUpdate { entity, ref path }) => {
                                         scene.set_texture(entity, path);
+                                    },
+                                    event::Update::SimulationTick(time) => {
+                                        scene.ticks[0] = scene.ticks[1];
+                                        scene.ticks[1] = time;
                                     },
                                 };
                             },
@@ -150,19 +162,16 @@ pub fn run(
                         }
                     }
 
+                    scene.interpolate_objects();
+
                     let rotation = nalgebra::Rotation3::from_euler_angles(
                         mouse_euler.pitch as f32,
                         mouse_euler.yaw as f32,
                         0.0,
                     );
-                    let position = nalgebra::Translation3::new(
-                        camera_pos.x as f32,
-                        camera_pos.y as f32,
-                        camera_pos.z as f32
-                    );
                     let translation = nalgebra::Translation3::<f32>::new(0.0, 0.0, 10.0);
                     scene.camera.set_view(
-                        nalgebra::Projective3::identity() * position * rotation * translation
+                        nalgebra::Projective3::identity() * scene.camera.position * rotation * translation
                     );
 
                     renderer.display();

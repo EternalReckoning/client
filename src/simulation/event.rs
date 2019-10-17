@@ -21,13 +21,8 @@ pub enum InputEvent {
 }
 
 #[derive(Clone)]
-pub struct Update {
-    pub time: std::time::Instant,
-    pub event: UpdateEvent,
-}
-
-#[derive(Clone)]
-pub enum UpdateEvent {
+pub enum Update {
+    SimulationTick(std::time::Instant),
     CameraUpdate(CameraUpdate),
     ModelUpdate(ModelUpdate),
     PositionUpdate(PositionUpdate),

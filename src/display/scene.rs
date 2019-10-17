@@ -1,7 +1,11 @@
+use crate::util::interpolate;
+
 #[derive(Debug)]
 pub struct Camera {
     pub view: nalgebra::Projective3<f32>,
     pub proj: nalgebra::Perspective3<f32>,
+    pub position: nalgebra::Translation3<f32>,
+    pub ticks: [Option<nalgebra::Point3<f32>>; 2],
 }
 
 #[derive(Debug)]
@@ -15,6 +19,7 @@ pub struct Object {
     pub model: Option<usize>,
     pub texture: Option<usize>,
     pub position: nalgebra::Similarity3<f32>,
+    pub ticks: [Option<nalgebra::Point3<f32>>; 2],
 }
 
 #[derive(Debug)]
@@ -24,6 +29,7 @@ pub struct Scene {
     pub models: Vec<super::Model>,
     pub objects: Vec<Object>,
     pub textures: Vec<super::Texture>,
+    pub ticks: [std::time::Instant; 2],
 }
 
 impl Camera {
@@ -36,6 +42,8 @@ impl Camera {
                 200.0,
             ),
             view: nalgebra::Projective3::identity(),
+            position: nalgebra::Translation3::<f32>::new(0.0, 0.0, 0.0),
+            ticks: [None, None],
         }
     }
 
@@ -45,6 +53,21 @@ impl Camera {
 
     pub fn set_view(&mut self, view: nalgebra::Projective3<f32>) {
         self.view = view;
+    }
+
+    pub fn set_position(&mut self, position: nalgebra::Point3<f32>, interpolate: bool) {
+        if interpolate {
+            self.ticks[0] = self.ticks[1];
+            self.ticks[1] = Some(position);
+        } else {
+            self.ticks[0] = None;
+            self.ticks[1] = None;
+            self.position = nalgebra::Translation3::<f32>::new(
+                position.x,
+                position.y,
+                position.z
+            )
+        }
     }
 }
 
@@ -63,7 +86,68 @@ impl UI {
     }
 }
 
+impl Object {
+    pub fn new(
+        id: specs::Entity,
+        position: nalgebra::Similarity3<f32>
+    ) -> Object
+    {
+        Object {
+            model: None,
+            texture: None,
+            ticks: [None, None],
+            id,
+            position,
+        }
+    }
+}
+
 impl Scene {
+    pub fn interpolate_objects(&mut self) {
+        // this might be a bit dumb...
+        let tick_ms = (self.ticks[1] - self.ticks[0]).subsec_millis();
+        let elapsed = self.ticks[1].elapsed().subsec_millis();
+
+        if tick_ms <= 0 || elapsed <= 0 {
+            return;
+        }
+
+        let progress = elapsed as f32 / tick_ms as f32;
+
+        for object in &mut self.objects {
+            if object.ticks[0].is_none() || object.ticks[1].is_none() {
+                continue;
+            }
+
+            let interp_pos = interpolate::lerp(
+                object.ticks[0].as_ref().unwrap(),
+                object.ticks[1].as_ref().unwrap(),
+                progress
+            );
+
+            object.position = nalgebra::Similarity3::<f32>::identity() *
+                nalgebra::Translation3::<f32>::new(
+                    interp_pos.x,
+                    interp_pos.y,
+                    interp_pos.z
+                );
+        }
+
+        if self.camera.ticks[0].is_some() && self.camera.ticks[1].is_some() {
+            let interp_pos = interpolate::lerp(
+                self.camera.ticks[0].as_ref().unwrap(),
+                self.camera.ticks[1].as_ref().unwrap(),
+                progress
+            );
+
+            self.camera.position = nalgebra::Translation3::<f32>::new(
+                interp_pos.x,
+                interp_pos.y,
+                interp_pos.z
+            );
+        }
+    }
+
     pub fn set_model(
         &mut self,
         id: specs::Entity,
@@ -106,13 +190,14 @@ impl Scene {
     pub fn set_position(
         &mut self,
         id: specs::Entity,
-        position: nalgebra::Similarity3::<f32>,
+        position: nalgebra::Point3::<f32>,
     ) -> bool
     {
         match self.object_by_id(id) {
             Some(index) => {
                 let object = self.objects.get_mut(index).unwrap();
-                object.position = position;
+                object.ticks[0] = object.ticks[1];
+                object.ticks[1] = Some(position);
                 return true;
             },
             _ => false,
