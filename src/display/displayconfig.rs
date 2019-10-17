@@ -3,6 +3,7 @@
 pub struct DisplayConfig {
     pub display_mode: DisplayMode,
     pub field_of_view: f32,
+    pub forward_interpolate: f32,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -18,6 +19,7 @@ impl Default for DisplayConfig {
         DisplayConfig {
             display_mode: DisplayMode::Windowed,
             field_of_view: 68.0,
+            forward_interpolate: 0.0,
         }
     }
 }

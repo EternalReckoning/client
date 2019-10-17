@@ -4,7 +4,7 @@ use failure::{
 };
 use rendy::wsi::winit;
 
-use super::config::{
+use super::displayconfig::{
     DisplayConfig,
     DisplayMode,
 };

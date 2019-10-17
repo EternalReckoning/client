@@ -103,7 +103,7 @@ impl Object {
 }
 
 impl Scene {
-    pub fn interpolate_objects(&mut self) {
+    pub fn interpolate_objects(&mut self, forward_interpolate: f32) {
         // this might be a bit dumb...
         let tick_ms = (self.ticks[1] - self.ticks[0]).subsec_millis();
         let elapsed = self.ticks[1].elapsed().subsec_millis();
@@ -112,7 +112,7 @@ impl Scene {
             return;
         }
 
-        let progress = elapsed as f32 / tick_ms as f32;
+        let progress = elapsed as f32 / tick_ms as f32 + forward_interpolate;
 
         for object in &mut self.objects {
             if object.ticks[0].is_none() || object.ticks[1].is_none() {

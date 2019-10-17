@@ -162,7 +162,7 @@ pub fn run(
                         }
                     }
 
-                    scene.interpolate_objects();
+                    scene.interpolate_objects(config.display.forward_interpolate);
 
                     let rotation = nalgebra::Rotation3::from_euler_angles(
                         mouse_euler.pitch as f32,

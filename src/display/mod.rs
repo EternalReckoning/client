@@ -1,4 +1,4 @@
-pub mod config;
+pub mod displayconfig;
 pub mod mesh;
 pub mod model;
 pub mod renderer;
@@ -10,7 +10,7 @@ pub mod window;
 mod graph;
 mod pipeline;
 
-pub use config::DisplayConfig;
+pub use displayconfig::DisplayConfig;
 pub use graph::RenderGraph;
 pub use mesh::Mesh;
 pub use model::Model;
