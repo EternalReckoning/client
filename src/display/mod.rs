@@ -1,3 +1,4 @@
+pub mod component;
 pub mod displayconfig;
 pub mod mesh;
 pub mod model;
@@ -5,6 +6,7 @@ pub mod renderer;
 pub mod scene;
 pub mod terrain;
 pub mod texture;
+pub mod ui;
 pub mod window;
 
 mod graph;

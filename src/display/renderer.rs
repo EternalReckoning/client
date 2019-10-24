@@ -10,6 +10,7 @@ use super::{
     RenderGraph,
     scene,
     Texture,
+    ui::UI,
     window::Window,
 };
 
@@ -37,16 +38,16 @@ impl Renderer {
         );
 
         let aspect = window.get_aspect_ratio() as f32;
+        let size = window.get_size();
         let time = std::time::Instant::now();
 
         let mut scene = scene::Scene {
             camera: scene::Camera::new(aspect, config.field_of_view),
-            ui: scene::UI::new(aspect),
             models: vec![terrain],
             // TODO: remove the need to hardcode textures here
             textures: vec![
                 Texture {
-                    path: "assets/stone.png".to_string(),
+                    path: "assets/sand.png".to_string(),
                     wrap_mode: rendy::resource::WrapMode::Tile,
                     format: None,
                 },
@@ -63,6 +64,7 @@ impl Renderer {
             ],
             objects: Vec::new(),
             ticks: [time, time],
+            ui: UI::new(size.width, size.height),
         };
 
         let graph = Some(RenderGraph::new(

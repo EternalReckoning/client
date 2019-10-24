@@ -1,4 +1,5 @@
 use crate::util::interpolate;
+use super::ui::UI;
 
 #[derive(Debug)]
 pub struct Camera {
@@ -6,11 +7,6 @@ pub struct Camera {
     pub proj: nalgebra::Perspective3<f32>,
     pub position: nalgebra::Translation3<f32>,
     pub ticks: [Option<nalgebra::Point3<f32>>; 2],
-}
-
-#[derive(Debug)]
-pub struct UI {
-    pub proj: nalgebra::Orthographic3<f32>,
 }
 
 #[derive(Debug)]
@@ -22,14 +18,13 @@ pub struct Object {
     pub ticks: [Option<nalgebra::Point3<f32>>; 2],
 }
 
-#[derive(Debug)]
 pub struct Scene {
     pub camera: Camera,
-    pub ui: UI,
     pub models: Vec<super::Model>,
     pub objects: Vec<Object>,
     pub textures: Vec<super::Texture>,
     pub ticks: [std::time::Instant; 2],
+    pub ui: UI,
 }
 
 impl Camera {
@@ -67,21 +62,6 @@ impl Camera {
                 position.y,
                 position.z
             )
-        }
-    }
-}
-
-impl UI {
-    pub fn new(aspect: f32) -> UI {
-        UI {
-            proj: nalgebra::Orthographic3::new(
-                -aspect,
-                aspect,
-                -1.0,
-                1.0,
-                -1.0,
-                1.0,
-            ),
         }
     }
 }
