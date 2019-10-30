@@ -140,9 +140,9 @@ where
         ];
     }
 
-    fn layout(&self) -> rendy::util::types::Layout {
-        rendy::util::types::Layout {
-            sets: vec![rendy::util::types::SetLayout {
+    fn layout(&self) -> rendy::graph::render::Layout {
+        rendy::graph::render::Layout {
+            sets: vec![rendy::graph::render::SetLayout {
                 bindings: vec![
                     hal::pso::DescriptorSetLayoutBinding {
                         binding: 0,
@@ -211,13 +211,13 @@ where
             let filter = rendy::resource::Filter::Linear;
             let texture = texture_builder
                 .set_sampler_info(
-                    rendy::resource::SamplerInfo {
+                    hal::image::SamplerDesc {
                         min_filter: filter,
                         mag_filter: filter,
                         mip_filter: filter,
                         wrap_mode: (tex.wrap_mode, tex.wrap_mode, tex.wrap_mode),
-                        lod_bias: rendy::resource::Lod::ZERO,
-                        lod_range: rendy::resource::Lod::ZERO .. rendy::resource::Lod::MAX,
+                        lod_bias: hal::image::Lod::RANGE.start,
+                        lod_range: hal::image::Lod::RANGE,
                         comparison: None,
                         border: rendy::resource::PackedColor(0),
                         normalized: true,

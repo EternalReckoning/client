@@ -28,7 +28,7 @@ where
         mut scene: &mut Scene,
         window: &super::window::Window,
     ) -> RenderGraph<B> {
-        let surface = window.create_surface(&mut factory);
+        let surface = window.create_surface(&mut factory).unwrap();
 
         let mut graph_builder = rendy::graph::GraphBuilder::<B, Scene>::new();
 

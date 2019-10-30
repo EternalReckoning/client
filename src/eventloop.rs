@@ -4,7 +4,6 @@ use std::sync::mpsc::{
 };
 
 use failure::Error;
-use rendy::wsi::winit;
 
 use crate::{
     input,

@@ -2,7 +2,6 @@ use failure::{
     format_err,
     Error,
 };
-use rendy::wsi::winit;
 
 use super::displayconfig::{
     DisplayConfig,
@@ -69,16 +68,21 @@ impl Window {
     pub fn create_surface<B>(
         &self,
         factory: &mut rendy::factory::Factory<B>,
-    ) -> rendy::wsi::Surface<B>
+    ) -> Result<rendy::wsi::Surface<B>, Error>
     where
         B: rendy::hal::Backend,
     {
         factory.create_surface(&self.window)
+            .map_err(|err| format_err!("failed to create rendering surface: {:?}", err))
     }
 
     pub fn run<F>(self, event_handler: F)
     where
-        F: 'static + FnMut(winit::event::Event<()>, &winit::event_loop::EventLoopWindowTarget<()>, &mut winit::event_loop::ControlFlow),
+        F: 'static + FnMut(
+            winit::event::Event<()>,
+            &winit::event_loop::EventLoopWindowTarget<()>,
+            &mut winit::event_loop::ControlFlow
+        ),
     {
         self.event_loop.run(event_handler);
     }

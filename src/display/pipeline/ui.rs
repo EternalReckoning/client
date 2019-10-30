@@ -117,9 +117,9 @@ where
         ];
     }
 
-    fn layout(&self) -> rendy::util::types::Layout {
-        rendy::util::types::Layout {
-            sets: vec![rendy::util::types::SetLayout {
+    fn layout(&self) -> rendy::graph::render::Layout {
+        rendy::graph::render::Layout {
+            sets: vec![rendy::graph::render::SetLayout {
                 bindings: vec![
                     hal::pso::DescriptorSetLayoutBinding {
                         binding: 0,
