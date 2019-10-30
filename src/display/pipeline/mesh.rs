@@ -121,6 +121,17 @@ where
         SHADERS.build(factory, Default::default()).unwrap()
     }
 
+    fn rasterizer(&self) -> hal::pso::Rasterizer {
+        hal::pso::Rasterizer {
+            polygon_mode: hal::pso::PolygonMode::Fill,
+            cull_face: hal::pso::Face::BACK,
+            front_face: hal::pso::FrontFace::Clockwise,
+            depth_clamping: false,
+            depth_bias: None,
+            conservative: false,
+        }
+    }
+
     fn vertices(
         &self,
     ) -> Vec<(

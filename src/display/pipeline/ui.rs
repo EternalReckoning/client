@@ -327,28 +327,28 @@ where
                     vertex_offset(index, self.align, component_index * 6),
                     &[
                         rendy::mesh::PosTex {
+                            position: [mc.dimensions.right as f32, mc.dimensions.top as f32, 0.0].into(),
+                            tex_coord: [display.texture_coords.1[0], display.texture_coords.0[1]].into(),
+                        },
+                        rendy::mesh::PosTex {
                             position: [mc.dimensions.left as f32, mc.dimensions.bottom as f32, 0.0].into(),
                             tex_coord: [display.texture_coords.0[0], display.texture_coords.1[1]].into(),
+                        },
+                        rendy::mesh::PosTex {
+                            position: [mc.dimensions.left as f32, mc.dimensions.top as f32, 0.0].into(),
+                            tex_coord: [display.texture_coords.0[0], display.texture_coords.0[1]].into(),
+                        },
+                        rendy::mesh::PosTex {
+                            position: [mc.dimensions.right as f32, mc.dimensions.top as f32, 0.0].into(),
+                            tex_coord: [display.texture_coords.1[0], display.texture_coords.0[1]].into(),
                         },
                         rendy::mesh::PosTex {
                             position: [mc.dimensions.right as f32, mc.dimensions.bottom as f32, 0.0].into(),
                             tex_coord: [display.texture_coords.1[0], display.texture_coords.1[1]].into(),
                         },
                         rendy::mesh::PosTex {
-                            position: [mc.dimensions.right as f32, mc.dimensions.top as f32, 0.0].into(),
-                            tex_coord: [display.texture_coords.1[0], display.texture_coords.0[1]].into(),
-                        },
-                        rendy::mesh::PosTex {
                             position: [mc.dimensions.left as f32, mc.dimensions.bottom as f32, 0.0].into(),
                             tex_coord: [display.texture_coords.0[0], display.texture_coords.1[1]].into(),
-                        },
-                        rendy::mesh::PosTex {
-                            position: [mc.dimensions.right as f32, mc.dimensions.top as f32, 0.0].into(),
-                            tex_coord: [display.texture_coords.1[0], display.texture_coords.0[1]].into(),
-                        },
-                        rendy::mesh::PosTex {
-                            position: [mc.dimensions.left as f32, mc.dimensions.top as f32, 0.0].into(),
-                            tex_coord: [display.texture_coords.0[0], display.texture_coords.0[1]].into(),
                         },
                     ],
                 )
