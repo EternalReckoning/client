@@ -9,6 +9,7 @@ use crate::simulation::{
     },
     component::{
         Model,
+        Texture,
         Health,
         Position,
         ServerID,
@@ -28,12 +29,13 @@ impl<'a> System<'a> for UpdateWorld {
         Read<'a, ActiveCharacter>,
         WriteStorage<'a, ServerID>,
         WriteStorage<'a, Model>,
+        WriteStorage<'a, Texture>,
         WriteStorage<'a, Health>,
         WriteStorage<'a, Position>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (entities, events, character, mut id, mut model, mut hp, mut pos) = data;
+        let (entities, events, character, mut id, mut model, mut texture, mut hp, mut pos) = data;
 
         for event in &*events {
             match event {
@@ -69,9 +71,11 @@ impl<'a> System<'a> for UpdateWorld {
                                 }
 
                                 if entity.is_none() {
+                                    log::debug!("New entity: {}", update.uuid);
                                     entity = Some(entities.create());
                                     id.insert(entity.unwrap(), ServerID(update.uuid)).unwrap();
                                     model.insert(entity.unwrap(), Model::new("assets/marker.erm")).unwrap();
+                                    texture.insert(entity.unwrap(), Texture::new("assets/marker.png")).unwrap();
                                 }
                                 let entity = entity.unwrap();
 
