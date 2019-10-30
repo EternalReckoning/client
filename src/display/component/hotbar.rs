@@ -26,9 +26,10 @@ pub struct HotbarButton {
 impl Hotbar {
     pub fn new() -> Hotbar {
         Hotbar {
-            button_size: 128,
+            button_size: 64,
             button_padding: 8,
             buttons: vec![
+                "assets/icon_attack.png".to_string(),
                 "assets/icon_attack.png".to_string(),
             ],
         }

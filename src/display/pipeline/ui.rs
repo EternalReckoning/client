@@ -82,7 +82,7 @@ pub struct SpriteGraphicsPipeline<B: hal::Backend> {
     indirect_buf: rendy::resource::Escape<rendy::resource::Buffer<B>>,
     sets: Vec<rendy::resource::Escape<rendy::resource::DescriptorSet<B>>>,
     textures: Vec<(String, rendy::texture::Texture<B>)>,
-    component_count: usize,
+    component_count: u32,
 }
 
 impl<B> SimpleGraphicsPipelineDesc<B, Scene> for SpriteGraphicsPipelineDesc
@@ -354,28 +354,28 @@ where
                 )
                     .unwrap();
             }
+            
+            unsafe {
+                factory.upload_visible_buffer(
+                    &mut self.indirect_buf,
+                    indirect_offset(index, self.align, component_index),
+                    &[rendy::command::DrawCommand {
+                        vertex_count: 6,
+                        instance_count: 1,
+                        first_vertex: component_index as u32 * 6,
+                        first_instance: 0,
+                    }]
+                )
+                .unwrap();
+            }
 
             component_index += 1;
         }
 
-        unsafe {
-            factory.upload_visible_buffer(
-                &mut self.indirect_buf,
-                indirect_offset(index, self.align, 0),
-                &[rendy::command::DrawCommand {
-                    vertex_count: 6,
-                    instance_count: component_index as u32,
-                    first_vertex: 0,
-                    first_instance: 0,
-                }]
-            )
-            .unwrap();
-        }
-
-        if self.component_count == component_index as usize {
+        if self.component_count == component_index as u32 {
             rendy::graph::render::PrepareResult::DrawReuse
         } else {
-            self.component_count = component_index as usize;
+            self.component_count = component_index as u32;
             rendy::graph::render::PrepareResult::DrawRecord
         }
     }
@@ -403,7 +403,7 @@ where
             encoder.draw_indirect(
                 self.indirect_buf.raw(),
                 indirect_offset(index, self.align, 0),
-                1,
+                self.component_count,
                 INDIRECT_COMMAND_SIZE as u32
             );
         }
