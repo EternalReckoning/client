@@ -100,7 +100,7 @@ pub fn build_simulation<'a, 'b>(
             heightmap_from_bmp("assets/terrain.bmp", 25.5).unwrap()
         )))
         .with(Model::new("assets/terrain.bmp"))
-        .with(Texture::new("assets/stone.png"))
+        .with(Texture::new("assets/sand.png"))
         .build();
 
     // Player
