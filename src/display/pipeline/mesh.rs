@@ -1,5 +1,3 @@
-use std::{fs::File, io::BufReader};
-
 use rendy::{
     factory::Factory,
     graph::render::{
@@ -42,6 +40,7 @@ lazy_static::lazy_static! {
 const MAX_VERTEX_COUNT: usize = 524_288;
 const MAX_INDEX_COUNT: usize = 2_097_152;
 const MAX_OBJECT_COUNT: usize = 32;
+const MAX_DESCRIPTOR_SET_COUNT: usize = 16;
 
 const UNIFORM_SIZE: u64 = std::mem::size_of::<UniformArgs>() as u64;
 const VERTEX_SIZE: u64 = (std::mem::size_of::<rendy::mesh::PosTex>() * MAX_VERTEX_COUNT) as u64;
@@ -91,6 +90,12 @@ struct InstanceArgs {
     model: nalgebra::Transform3<f32>,
 }
 
+#[derive(Debug)]
+struct DescriptorUsage {
+    texture: Option<String>,
+    loaded: bool,
+}
+
 #[derive(Debug, Default)]
 pub struct TriangleRenderPipelineDesc;
 
@@ -103,11 +108,11 @@ pub struct TriangleRenderPipeline<B: hal::Backend> {
     model_buf: rendy::resource::Escape<rendy::resource::Buffer<B>>,
     indirect_buf: rendy::resource::Escape<rendy::resource::Buffer<B>>,
     sets: Vec<rendy::resource::Escape<rendy::resource::DescriptorSet<B>>>,
-    textures: Vec<(String, rendy::texture::Texture<B>)>,
+    set_usage: Vec<DescriptorUsage>,
     mesh_count: usize,
 }
 
-impl<B> SimpleGraphicsPipelineDesc<B, Scene> for TriangleRenderPipelineDesc
+impl<B> SimpleGraphicsPipelineDesc<B, Scene<B>> for TriangleRenderPipelineDesc
 where
     B: hal::Backend,
 {
@@ -116,7 +121,7 @@ where
     fn load_shader_set(
         &self,
         factory: &mut Factory<B>,
-        _scene: &Scene,
+        _scene: &Scene<B>,
     ) -> rendy::shader::ShaderSet<B> {
         SHADERS.build(factory, Default::default()).unwrap()
     }
@@ -186,8 +191,8 @@ where
         self,
         ctx: &rendy::graph::GraphContext<B>,
         factory: &mut Factory<B>,
-        queue: rendy::command::QueueId,
-        scene: &Scene,
+        _queue: rendy::command::QueueId,
+        scene: &Scene<B>,
         buffers: Vec<rendy::graph::NodeBuffer>,
         images: Vec<rendy::graph::NodeImage>,
         set_layouts: &[rendy::resource::Handle<rendy::resource::DescriptorSetLayout<B>>],
@@ -195,59 +200,6 @@ where
         assert!(buffers.is_empty());
         assert!(images.is_empty());
         assert_eq!(set_layouts.len(), 1);
-
-        let mut textures = Vec::new();
-
-        for tex in &scene.textures {
-            let image_reader = BufReader::new(
-                File::open(&tex.path[..])
-                    .map_err(|e| {
-                        log::error!("Unable to open {}: {:?}", tex.path, e);
-                        hal::pso::CreationError::Other
-                    })?
-            );
-
-            let mut texture_builder = rendy::texture::image::load_from_image(
-                image_reader,
-                rendy::texture::image::ImageTextureConfig {
-                    format: tex.format,
-                    generate_mips: true,
-                    ..Default::default()
-                }
-            ).map_err(|e| {
-                log::error!("Unable to load image: {:?}", e);
-                hal::pso::CreationError::Other
-            })?;
-
-            let filter = rendy::resource::Filter::Linear;
-            let texture = texture_builder
-                .set_sampler_info(
-                    hal::image::SamplerDesc {
-                        min_filter: filter,
-                        mag_filter: filter,
-                        mip_filter: filter,
-                        wrap_mode: (tex.wrap_mode, tex.wrap_mode, tex.wrap_mode),
-                        lod_bias: hal::image::Lod::RANGE.start,
-                        lod_range: hal::image::Lod::RANGE,
-                        comparison: None,
-                        border: rendy::resource::PackedColor(0),
-                        normalized: true,
-                        anisotropic: rendy::resource::Anisotropic::On(4),
-                    }
-                )
-                .build(
-                    rendy::factory::ImageState {
-                        queue,
-                        stage: hal::pso::PipelineStage::FRAGMENT_SHADER,
-                        access: hal::image::Access::SHADER_READ,
-                        layout: hal::image::Layout::ShaderReadOnlyOptimal,
-                    },
-                    factory,
-                )
-                .unwrap();
-            
-            textures.push((tex.path.clone(), texture));
-        }
 
         let frames = ctx.frames_in_flight as _;
         let align = factory
@@ -301,9 +253,10 @@ where
             )
             .unwrap();
 
+        let mut set_usage = Vec::with_capacity(MAX_DESCRIPTOR_SET_COUNT * frames);
         let mut sets = Vec::new();
         for index in 0..frames {
-            for (_, texture) in &textures {
+            for _ in 0..MAX_DESCRIPTOR_SET_COUNT {
                 let set = factory
                     .create_descriptor_set(set_layouts[0].clone())
                     .unwrap();
@@ -320,27 +273,14 @@ where
                                     ..Some(uniform_offset(index, align) + UNIFORM_SIZE),
                             )),
                         },
-                        hal::pso::DescriptorSetWrite {
-                            set: set.raw(),
-                            binding: 1,
-                            array_offset: 0,
-                            descriptors: Some(hal::pso::Descriptor::Image(
-                                texture.view().raw(),
-                                hal::image::Layout::ShaderReadOnlyOptimal,
-                            )),
-                        },
-                        hal::pso::DescriptorSetWrite {
-                            set: set.raw(),
-                            binding: 2,
-                            array_offset: 0,
-                            descriptors: Some(hal::pso::Descriptor::Sampler(
-                                texture.sampler().raw()
-                            )),
-                        },
                     ]);
                 }
 
                 sets.push(set);
+                set_usage.push(DescriptorUsage {
+                    texture: None,
+                    loaded: false,
+                });
             }
         }
 
@@ -362,13 +302,13 @@ where
             model_buf: mbuf,
             indirect_buf: icmdbuf,
             sets,
+            set_usage,
             mesh_count,
-            textures,
         })
     }
 }
 
-impl<B> SimpleGraphicsPipeline<B, Scene> for TriangleRenderPipeline<B>
+impl<B> SimpleGraphicsPipeline<B, Scene<B>> for TriangleRenderPipeline<B>
 where
     B: hal::Backend,
 {
@@ -380,7 +320,7 @@ where
         _queue: rendy::command::QueueId,
         _set_layouts: &[rendy::resource::Handle<rendy::resource::DescriptorSetLayout<B>>],
         index: usize,
-        scene: &Scene,
+        scene: &Scene<B>,
     ) -> rendy::graph::render::PrepareResult {
         unsafe {
             factory
@@ -393,6 +333,64 @@ where
                     }]
                 )
                 .unwrap();
+        }
+        
+        let mut textures_added = false;
+        
+        let min_descriptor = index * MAX_DESCRIPTOR_SET_COUNT;
+        let max_descriptor = min_descriptor + MAX_DESCRIPTOR_SET_COUNT;
+
+        for tex in scene.textures.iter() {
+            if tex.data.is_none() {
+                continue;
+            }
+
+            let mut found = false;
+            for set in &self.set_usage[min_descriptor..max_descriptor] {
+                if Some(&tex.path) == set.texture.as_ref() {
+                    found = true;
+                    break;
+                }
+            }
+            
+            if !found {
+                for set_i in min_descriptor..max_descriptor {
+                    let usage = self.set_usage.get_mut(set_i).unwrap();
+                    if usage.texture.is_some() {
+                        continue;
+                    }
+
+                    let set = self.sets.get(set_i).unwrap();
+
+                    usage.texture = Some(tex.path.clone());
+                    unsafe {
+                        factory.write_descriptor_sets(vec![
+                            hal::pso::DescriptorSetWrite {
+                                set: set.raw(),
+                                binding: 1,
+                                array_offset: 0,
+                                descriptors: Some(hal::pso::Descriptor::Image(
+                                    tex.data.as_ref().unwrap().view().raw(),
+                                    hal::image::Layout::ShaderReadOnlyOptimal,
+                                )),
+                            },
+                            hal::pso::DescriptorSetWrite {
+                                set: set.raw(),
+                                binding: 2,
+                                array_offset: 0,
+                                descriptors: Some(hal::pso::Descriptor::Sampler(
+                                    tex.data.as_ref().unwrap().sampler().raw()
+                                )),
+                            },
+                        ]);
+                    }
+                    usage.loaded = true;
+
+                    textures_added = true;
+
+                    break;
+                }
+            }
         }
 
         let mut model_offsets = Vec::<(u32, u32, u32)>::new();
@@ -480,7 +478,7 @@ where
             }
         }
 
-        if self.mesh_count != mesh_count {
+        if textures_added || self.mesh_count != mesh_count {
             log::trace!("Vertices: {}; Indices: {}", offset_v, offset_i);
             rendy::graph::render::PrepareResult::DrawRecord
         } else {
@@ -493,7 +491,7 @@ where
         layout: &B::PipelineLayout,
         mut encoder: rendy::command::RenderPassEncoder<'_, B>,
         index: usize,
-        scene: &Scene,
+        scene: &Scene<B>,
     ) {
         unsafe {
             encoder.bind_vertex_buffers(
@@ -512,31 +510,44 @@ where
                 hal::IndexType::U32,
             );
 
-            for tex_i in 0..scene.textures.len() {
-                encoder.bind_graphics_descriptor_sets(
-                    layout,
-                    0,
-                    Some(self.sets[index * scene.textures.len() + tex_i].raw()),
-                    std::iter::empty(),
-                );
+            let min_descriptor = index * MAX_DESCRIPTOR_SET_COUNT;
+            let max_descriptor = min_descriptor + MAX_DESCRIPTOR_SET_COUNT;
 
-                for obj_i in 0..scene.objects.len() {
-                    let obj = scene.objects.get(obj_i).unwrap();
-
-                    if obj.texture != Some(tex_i) {
+            for (tex_i, tex) in scene.textures.iter().enumerate() {
+                for set_i in min_descriptor..max_descriptor {
+                    let set = self.set_usage.get(set_i).unwrap();
+                    if !set.loaded {
+                        continue;
+                    }
+                    if set.texture.as_ref() != Some(&tex.path) {
                         continue;
                     }
 
-                    encoder.draw_indexed_indirect(
-                        self.indirect_buf.raw(),
-                        indirect_offset(index, self.align, obj_i as u64),
-                        1,
-                        INDIRECT_COMMAND_SIZE as u32,
+                    encoder.bind_graphics_descriptor_sets(
+                        layout,
+                        0,
+                        Some(self.sets[set_i].raw()),
+                        std::iter::empty(),
                     );
+
+                    for obj_i in 0..scene.objects.len() {
+                        let obj = scene.objects.get(obj_i).unwrap();
+
+                        if obj.texture != Some(tex_i) {
+                            continue;
+                        }
+
+                        encoder.draw_indexed_indirect(
+                            self.indirect_buf.raw(),
+                            indirect_offset(index, self.align, obj_i as u64),
+                            1,
+                            INDIRECT_COMMAND_SIZE as u32,
+                        );
+                    }
                 }
             }
         }
     }
 
-    fn dispose(self, _factory: &mut rendy::factory::Factory<B>, _scene: &Scene) {}
+    fn dispose(self, _factory: &mut rendy::factory::Factory<B>, _scene: &Scene<B>) {}
 }

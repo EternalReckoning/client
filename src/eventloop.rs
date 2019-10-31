@@ -10,8 +10,12 @@ use crate::{
     input::InputTypes,
     iohandler,
     display::{
+        self,
         Renderer,
-        scene::Object,
+        scene::{
+            Scene,
+            Object,
+        },
         window::Window,
     },
     simulation::event,
@@ -35,6 +39,8 @@ pub fn run(
 
     let (io_tx, io_rx) = io_channel;
     let mut renderer = Some(renderer);
+
+    let mut loading = 0;
 
     let mouse_sens = input::MouseSensitivity::new(config.mouse.sensitivity);
     let mut mouse_euler = input::MouseEuler::default();
@@ -140,6 +146,7 @@ pub fn run(
                                     },
                                     event::Update::ModelUpdate(event::ModelUpdate { entity, ref path, offset }) => {
                                         if scene.get_model(&path[..]).is_none() {
+                                            loading += 1;
                                             io_tx.send(iohandler::Request::LoadModel(path.to_string()))
                                                 .unwrap_or_else(|err| {
                                                     log::error!("IO handler not available: {}", err);
@@ -148,8 +155,38 @@ pub fn run(
                                         }
                                         scene.set_model(entity, path, offset);
                                     },
-                                    event::Update::TextureUpdate(event::TextureUpdate { entity, ref path }) => {
-                                        scene.set_texture(entity, path);
+                                    event::Update::TerrainUpdate(event::TerrainUpdate { entity, ref heightmap, scale }) => {
+                                        if scene.get_model(&heightmap[..]).is_none() {
+                                            loading += 1;
+                                            io_tx.send(iohandler::Request::LoadTerrain(
+                                                iohandler::LoadTerrainRequest {
+                                                    path: heightmap.to_string(),
+                                                    scale,
+                                                }
+                                            ))
+                                                .unwrap_or_else(|err| {
+                                                    log::error!("IO handler not available: {}", err);
+                                                    *control_flow = winit::event_loop::ControlFlow::Exit;
+                                                });
+                                        }
+                                        scene.set_model(entity, heightmap, None);
+                                    },
+                                    event::Update::TextureUpdate(event::TextureUpdate { entity, ref path, wrap_mode }) => {
+                                        if !scene.set_texture(entity, path) {
+                                            scene.add_texture(display::Texture {
+                                                path: path.clone(),
+                                                wrap_mode,
+                                                format: None,
+                                                data: None,
+                                            });
+
+                                            loading += 1;
+                                            io_tx.send(iohandler::Request::LoadFile(path.to_string()))
+                                                .unwrap_or_else(|err| {
+                                                    log::error!("IO handler not available: {}", err);
+                                                    *control_flow = winit::event_loop::ControlFlow::Exit;
+                                                });
+                                        }
                                     },
                                     event::Update::SimulationTick(time) => {
                                         scene.ticks[0] = scene.ticks[1];
@@ -179,31 +216,41 @@ pub fn run(
             _ => {},
         }
 
-        // TODO: nested so deep...
+        if let Some(renderer) = &mut renderer {
+            let scene = renderer.get_scene();
+            send_ui_texture_requests(scene, &io_tx);
+        }
+
         loop {
             match io_rx.try_recv() {
                 Ok(io_result) => {
                     match io_result {
+                        iohandler::Response::TerrainLoaded(data) => {
+                            if let Some(renderer) = &mut renderer {
+                                terrain_loaded(renderer, data);
+                            }
+                        },
                         iohandler::Response::ModelLoaded(data) => {
                             if let Some(renderer) = &mut renderer {
-                                let mut meshes = data.meshes;
-                                for model in &mut renderer.get_scene().models {
-                                    if model.path == data.path {
-                                        loop {
-                                            match meshes.pop() {
-                                                Some(mesh) => model.add_mesh(
-                                                    nalgebra::Point3::new(0.0, 0.0, 0.0),
-                                                    mesh
-                                                ),
-                                                None => break,
-                                            }
-                                        }
-                                    }
-                                }
+                                model_loaded(renderer, data);
+                            }
+                        },
+                        iohandler::Response::FileLoaded(data) => {
+                            if let Some(renderer) = &mut renderer {
+                                file_loaded(renderer, data);
                             }
                         },
                         // TODO
                         iohandler::Response::Error => (),
+                    }
+                    
+                    loading -= 1;
+                    if loading == 0 {
+                        if let Some(renderer) = &mut renderer {
+                            let scene = renderer.get_scene();
+                            // loading splash screen hack
+                            scene.ui.set_root(Box::new(display::component::Hotbar::new()));
+                        }
                     }
                 },
                 Err(_) => break,
@@ -217,4 +264,70 @@ pub fn run(
     });
 
     Ok(())
+}
+
+fn send_ui_texture_requests<B: rendy::hal::Backend>(
+    scene: &mut Scene<B>,
+    io_tx: &Sender<iohandler::Request>
+) {
+    for texture in scene.ui.root.iter_textures() {
+        if let Some(texture) = texture.upgrade() {
+            let mut found = false;
+            for ui_texture in &scene.ui.textures {
+                if &ui_texture.path[..] == &texture[..] {
+                    found = true;
+                    break;
+                }
+            }
+
+            if !found {
+                scene.ui.textures.push(display::Texture {
+                    path: texture.to_string(),
+                    wrap_mode: rendy::resource::WrapMode::Clamp,
+                    format: None,
+                    data: None,
+                });
+                io_tx.send(iohandler::Request::LoadFile(texture.to_string()))
+                    .unwrap_or_else(|e| {
+                        log::warn!("Failed to send IO request: {}", e);
+                    });
+            }
+        }
+    }
+}
+
+fn file_loaded(renderer: &mut Renderer, data: iohandler::FileLoaded) {
+    renderer.load_texture(&data)
+        .unwrap_or_else(|e| {
+            log::error!("Failed to load texture: {}", e);
+        });
+}
+
+fn model_loaded(renderer: &mut Renderer, data: iohandler::ModelLoaded) {
+    let mut meshes = data.meshes;
+    for model in &mut renderer.get_scene().models {
+        if model.path == data.path {
+            loop {
+                match meshes.pop() {
+                    Some(mesh) => model.add_mesh(
+                        nalgebra::Point3::new(0.0, 0.0, 0.0),
+                        mesh
+                    ),
+                    None => break,
+                }
+            }
+        }
+    }
+}
+
+fn terrain_loaded(renderer: &mut Renderer, data: iohandler::TerrainLoaded) {
+    for model in &mut renderer.get_scene().models {
+        if model.path == data.path {
+            model.add_mesh(
+                nalgebra::Point3::new(0.0, 0.0, 0.0),
+                data.mesh
+            );
+            return;
+        }
+    }
 }

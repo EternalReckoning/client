@@ -26,6 +26,7 @@ pub enum Update {
     CameraUpdate(CameraUpdate),
     ModelUpdate(ModelUpdate),
     PositionUpdate(PositionUpdate),
+    TerrainUpdate(TerrainUpdate),
     TextureUpdate(TextureUpdate),
 }
 
@@ -40,9 +41,17 @@ pub struct ModelUpdate {
 }
 
 #[derive(Clone)]
+pub struct TerrainUpdate {
+    pub entity: specs::Entity,
+    pub heightmap: String,
+    pub scale: f32,
+}
+
+#[derive(Clone)]
 pub struct TextureUpdate {
     pub entity: specs::Entity,
     pub path: String,
+    pub wrap_mode: rendy::resource::WrapMode,
 }
 
 #[derive(Clone)]

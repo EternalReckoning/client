@@ -10,6 +10,7 @@ use super::super::{
         Model,
         Position,
         ServerID,
+        Terrain,
         Texture,
     },
     event::{
@@ -17,6 +18,7 @@ use super::super::{
         PositionUpdate,
         CameraUpdate,
         ModelUpdate,
+        TerrainUpdate,
         TextureUpdate,
     },
     resource::{
@@ -54,6 +56,7 @@ impl<'a> System<'a> for UpdateSender {
         Read<'a, ActiveCamera>,
         Read<'a, ActiveCharacter>,
         ReadStorage<'a, Model>,
+        ReadStorage<'a, Terrain>,
         ReadStorage<'a, Position>,
         ReadStorage<'a, ServerID>,
         ReadStorage<'a, Texture>,
@@ -66,6 +69,7 @@ impl<'a> System<'a> for UpdateSender {
             camera,
             character,
             model,
+            terrain,
             pos,
             id,
             texture
@@ -115,11 +119,22 @@ impl<'a> System<'a> for UpdateSender {
             ));
         }
 
+        for (ent, terrain) in (&entities, &terrain).join() {
+            self.send_event(Update::TerrainUpdate(
+                TerrainUpdate {
+                    entity: ent,
+                    heightmap: terrain.path.clone(),
+                    scale: terrain.scale,
+                }
+            ));
+        }
+
         for (ent, tex) in (&entities, &texture).join() {
             self.send_event(Update::TextureUpdate(
                 TextureUpdate {
                     entity: ent,
                     path: tex.path.clone(),
+                    wrap_mode: tex.wrap_mode,
                 }
             ));
         }

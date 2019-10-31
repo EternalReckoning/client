@@ -22,6 +22,7 @@ use super::component::{
     Name,
     Position,
     ServerID,
+    Terrain,
     Texture,
     Velocity,
 };
@@ -90,6 +91,7 @@ pub fn build_simulation<'a, 'b>(
     world.register::<Name>();
     world.register::<Position>();
     world.register::<ServerID>();
+    world.register::<Terrain>();
     world.register::<Texture>();
     world.register::<Velocity>();
 
@@ -97,10 +99,13 @@ pub fn build_simulation<'a, 'b>(
     world.create_entity()
         .with(Position(nalgebra::Point3::new(-64.0, 5.0, -64.0)))
         .with(Collider::new(collider::ColliderType::HeightMap(
-            heightmap_from_bmp("assets/terrain.bmp", 25.5).unwrap()
+            heightmap_from_bmp("assets/terrain.bmp", 25.0).unwrap()
         )))
-        .with(Model::new("assets/terrain.bmp"))
-        .with(Texture::new("assets/sand.png"))
+        .with(Terrain::new("assets/terrain.bmp", 25.0))
+        .with(Texture {
+            path: "assets/sand.png".to_string(),
+            wrap_mode: rendy::resource::WrapMode::Tile,
+        })
         .build();
 
     // Player

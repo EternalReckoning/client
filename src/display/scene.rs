@@ -1,3 +1,5 @@
+use rendy::hal;
+
 use crate::util::interpolate;
 use super::ui::UI;
 
@@ -18,13 +20,16 @@ pub struct Object {
     pub ticks: [Option<nalgebra::Point3<f32>>; 2],
 }
 
-pub struct Scene {
+pub struct Scene<B>
+where
+    B: hal::Backend,
+{
     pub camera: Camera,
     pub models: Vec<super::Model>,
     pub objects: Vec<Object>,
-    pub textures: Vec<super::Texture>,
+    pub textures: Vec<super::Texture<B>>,
     pub ticks: [std::time::Instant; 2],
-    pub ui: UI,
+    pub ui: UI<B>,
 }
 
 impl Camera {
@@ -82,7 +87,10 @@ impl Object {
     }
 }
 
-impl Scene {
+impl<B> Scene<B>
+where
+    B: hal::Backend,
+{
     pub fn interpolate_objects(&mut self, forward_interpolate: f32) {
         // this might be a bit dumb...
         let tick_ms = (self.ticks[1] - self.ticks[0]).subsec_millis();
@@ -248,5 +256,14 @@ impl Scene {
         }
 
         None
+    }
+    
+    pub fn add_texture(
+        &mut self,
+        texture: super::Texture<B>
+    ) -> usize
+    {
+        self.textures.push(texture);
+        self.textures.len() - 1
     }
 }

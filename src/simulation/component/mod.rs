@@ -6,6 +6,7 @@ mod movement;
 mod name;
 mod position;
 mod serverid;
+mod terrain;
 mod texture;
 mod velocity;
 
@@ -17,5 +18,6 @@ pub use movement::Movement;
 pub use name::Name;
 pub use position::Position;
 pub use serverid::ServerID;
+pub use terrain::Terrain;
 pub use texture::Texture;
 pub use velocity::Velocity;

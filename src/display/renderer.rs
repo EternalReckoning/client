@@ -3,13 +3,10 @@ use failure::{
     Error,
 };
 
-use crate::loaders;
 use super::{
     DisplayConfig,
-    Model,
     RenderGraph,
     scene,
-    Texture,
     ui::UI,
     window::Window,
 };
@@ -19,7 +16,7 @@ type Backend = rendy::vulkan::Backend;
 pub struct Renderer {
     factory: rendy::factory::Factory<Backend>,
     families: rendy::command::Families<Backend>,
-    scene: scene::Scene,
+    scene: scene::Scene<Backend>,
     graph: Option<RenderGraph<Backend>>,
 }
 
@@ -30,38 +27,14 @@ impl Renderer {
             rendy::factory::init(rendy_config)
                 .map_err(|err| format_err!("failed to configure graphics device: {:?}", err))?;
 
-        let mut terrain = Model::new("assets/terrain.bmp".to_string());
-        let terrain_mesh = loaders::mesh_from_bmp("assets/terrain.bmp", 25.0)?;
-        terrain.add_mesh(
-            nalgebra::Point3::new(0.0, 0.0, 0.0),
-            terrain_mesh
-        );
-
         let aspect = window.get_aspect_ratio() as f32;
         let size = window.get_size();
         let time = std::time::Instant::now();
 
         let mut scene = scene::Scene {
             camera: scene::Camera::new(aspect, config.field_of_view),
-            models: vec![terrain],
-            // TODO: remove the need to hardcode textures here
-            textures: vec![
-                Texture {
-                    path: "assets/sand.png".to_string(),
-                    wrap_mode: rendy::resource::WrapMode::Tile,
-                    format: None,
-                },
-                Texture {
-                    path: "assets/marker.png".to_string(),
-                    wrap_mode: rendy::resource::WrapMode::Clamp,
-                    format: None,
-                },
-                Texture {
-                    path: "assets/pillar.png".to_string(),
-                    wrap_mode: rendy::resource::WrapMode::Clamp,
-                    format: None,
-                },
-            ],
+            models: Vec::new(),
+            textures: Vec::new(),
             objects: Vec::new(),
             ticks: [time, time],
             ui: UI::new(size.width, size.height),
@@ -89,13 +62,35 @@ impl Renderer {
         }
     }
 
-    pub fn get_scene(&mut self) -> &mut scene::Scene {
+    pub fn get_scene(&mut self) -> &mut scene::Scene<Backend> {
         &mut self.scene
+    }
+
+    pub fn load_texture(&mut self, data: &crate::iohandler::FileLoaded)
+        -> Result<(), Error>
+    {
+        if let Some(graph) = &mut self.graph {
+            graph.load_mesh_texture(
+                &mut self.factory,
+                &mut self.scene,
+                data
+            )?;
+            
+            graph.load_ui_texture(
+                &mut self.factory,
+                &mut self.scene,
+                data
+            )?;
+        }
+        Ok(())
     }
 }
 
 impl Drop for Renderer {
     fn drop(&mut self) {
+        self.scene.textures.clear();
+        self.scene.ui.textures.clear();
+
         self.graph.take().unwrap().dispose(&mut self.factory, &self.scene);
     }
 }
