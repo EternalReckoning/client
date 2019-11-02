@@ -52,7 +52,7 @@ where
             factory.get_surface_format(&surface),
             Some(hal::command::ClearValue {
                 color: hal::command::ClearColor {
-                    float32: [1.0, 1.0, 1.0, 1.0],
+                    float32: [0.0, 0.0, 0.0, 1.0],
                 },
             }),
         );
