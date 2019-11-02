@@ -1,18 +1,20 @@
 use std::sync::mpsc::Sender;
 
-use failure::Error;
+use failure::{
+    format_err,
+    Error,
+};
 use futures::sync::mpsc;
-use tokio::io::{
-    ReadHalf,
-    WriteHalf,
+use futures::stream::{
+    Stream,
+    SplitStream,
+    SplitSink,
 };
-use tokio::net::TcpStream;
+use tokio::net::{
+    UdpSocket,
+    UdpFramed,
+};
 use tokio::prelude::*;
-use tokio::codec::{
-    Framed,
-    FramedRead,
-    FramedWrite,
-};
 
 use eternalreckoning_core::net::{
     codec::EternalReckoningCodec,
@@ -36,34 +38,54 @@ pub fn connect(
     event_tx: Sender<Event>,
 )
 {
-    let client = tokio_dns::TcpStream::connect(&address[..])
+    let client = tokio_dns::resolve_sock_addr(&address[..])
         .from_err()
-        .and_then(move |stream| {
-            log::info!("Connected to server");
+        .and_then(move |addr_vec| {
+            let socket = UdpSocket::bind(&([127, 0, 0, 1], 0).into())
+                .map_err(|err| {
+                    format_err!("Failed to bind udp socket: {}", err)
+                })
+                .unwrap();
 
-            Framed::new(stream, EternalReckoningCodec)
-                .send(Operation::ClConnectMessage(operation::ClConnectMessage))
+            let mut addr = None;
+            for try_addr in addr_vec {
+                if socket.connect(&try_addr).is_ok() {
+                    addr = Some(try_addr);
+                    break;
+                }
+            }
+            
+            let addr = match addr {
+                Some(addr) => addr,
+                None => {
+                    panic!("Failed to connect to server");
+                }
+            };
+
+            log::info!("Connected to server: {}", addr);
+
+            UdpFramed::new(socket, EternalReckoningCodec)
+                .send((Operation::ClConnectMessage(operation::ClConnectMessage), addr))
                 .and_then(|framed| {
                     framed.into_future().map_err(|(err, _stream)| err)
                 })
-                .map(|(op, stream)| {
+                .map(move |(op, stream)| {
                     if op.is_none() {
                         return futures::future::err(
                             failure::format_err!("connection closed")
                         );
                     }
-                    let op = op.unwrap();
+                    let op = op.unwrap().0;
 
                     if let Operation::SvConnectResponse(operation::SvConnectResponse { uuid }) = op {
                         event_tx.send(Event::ConnectionEvent(
                             ConnectionEvent::Connected(uuid)
                         )).unwrap();
 
-                        let (reader, writer) = stream.into_inner().split();
+                        let (writer, reader) = stream.split();
 
-                        let framed_reader = FramedRead::new(reader, EternalReckoningCodec);
                         tokio::spawn(
-                            ReadConnection::new(framed_reader, event_tx.clone())
+                            ReadConnection::new(reader, event_tx.clone())
                                 .map_err(move |err| {
                                     log::error!("Receive failed: {:?}", err);
                                     event_tx.send(Event::ConnectionEvent(
@@ -72,9 +94,8 @@ pub fn connect(
                                 })
                         );
 
-                        let framed_writer = FramedWrite::new(writer, EternalReckoningCodec);
                         tokio::spawn(
-                            WriteConnection::new(framed_writer, update_rx)
+                            WriteConnection::new(writer, addr, update_rx)
                                 .map_err(|err| {
                                     log::error!("Write failed: {:?}", err);
                                 })
@@ -100,13 +121,13 @@ pub fn connect(
 }
 
 struct ReadConnection {
-    frames: FramedRead<ReadHalf<TcpStream>, EternalReckoningCodec>,
+    frames: SplitStream<UdpFramed<EternalReckoningCodec>>,
     event_tx: Sender<Event>,
 }
 
 impl ReadConnection {
     pub fn new(
-        frames: FramedRead<ReadHalf<TcpStream>, EternalReckoningCodec>,
+        frames: SplitStream<UdpFramed<EternalReckoningCodec>>,
         event_tx: Sender<Event>,
     ) -> ReadConnection
     {
@@ -137,8 +158,8 @@ impl Future for ReadConnection {
     fn poll(&mut self) -> Poll<(), Error> {
         while let Async::Ready(frame) = self.frames.poll()? {
             if let Some(packet) = frame {
-                log::trace!("Packet: {}", &packet);
-                self.process_data(&packet)?;
+                log::trace!("Packet: {}", &packet.0);
+                self.process_data(&packet.0)?;
             } else {
                 // EOF
                 log::warn!("Disconnected from server");
@@ -156,26 +177,29 @@ enum WriteConnectionState {
 }
 
 struct WriteConnection {
-    frames: FramedWrite<WriteHalf<TcpStream>, EternalReckoningCodec>,
+    frames: SplitSink<UdpFramed<EternalReckoningCodec>>,
+    addr: std::net::SocketAddr,
     update_rx: mpsc::UnboundedReceiver<Update>,
     state: WriteConnectionState,
 }
 
 impl WriteConnection {
     pub fn new(
-        frames: FramedWrite<WriteHalf<TcpStream>, EternalReckoningCodec>,
+        frames: SplitSink<UdpFramed<EternalReckoningCodec>>,
+        addr: std::net::SocketAddr,
         update_rx: mpsc::UnboundedReceiver<Update>,
     ) -> WriteConnection
     {
         WriteConnection {
             frames,
+            addr,
             update_rx,
             state: WriteConnectionState::Connected,
         }
     }
 
     fn send(&mut self, packet: Operation) -> Result<(), Error> {
-        self.frames.start_send(packet)?;
+        self.frames.start_send((packet, self.addr))?;
         self.state = WriteConnectionState::Sending;
         Ok(())
     }

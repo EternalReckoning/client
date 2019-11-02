@@ -1,6 +1,9 @@
 use std::time::Duration;
 use std::thread;
-use std::sync::mpsc::channel;
+use std::sync::mpsc::{
+    channel,
+    TryRecvError,
+};
 
 use failure::Error;
 use futures::sync::mpsc::unbounded;
@@ -77,7 +80,21 @@ pub fn main(config: config::Config) -> Result<(), Error> {
             net_update_tx,
             tick_length
         );
-        game.run(event_rx, tick_length);
+        game.run(
+            move || {
+                match event_rx.try_recv() {
+                    Ok(event) => {
+                        Ok(Some(event))
+                    },
+                    Err(TryRecvError::Empty) => Ok(None),
+                    Err(TryRecvError::Disconnected) => Err(()),
+                }
+            },
+            tick_length
+        )
+            .unwrap_or_else(|_| {
+                log::error!("Network thread disconnected")
+            });
         log::info!("Simulation closed");
     });
 
