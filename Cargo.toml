@@ -17,7 +17,7 @@ x11 = [
 ]
 
 [dependencies]
-eternalreckoning-core = { version = "~0.1", path = "../core" }
+eternalreckoning-core = { version = "~0.2", path = "../core" }
 eternalreckoning-ui = { version = "~0.1", path = "../ui" }
 
 bitflags = "1.2"
