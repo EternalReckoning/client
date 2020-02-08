@@ -16,15 +16,14 @@ use crate::{
             Scene,
             Object,
         },
-        window::Window,
     },
     simulation::event,
     util::config,
 };
 
 pub fn run(
-    window: Window,
     renderer: Renderer,
+    event_loop: winit::event_loop::EventLoop<()>,
     config: config::Config,
     event_tx: Sender<event::Event>,
     update_rx: Receiver<event::Update>,
@@ -46,7 +45,7 @@ pub fn run(
     let mut mouse_euler = input::MouseEuler::default();
     let mut mouse_look = false;
 
-    window.run(move |event, _, control_flow| {
+    event_loop.run(move |event, _, control_flow| {
         *control_flow = winit::event_loop::ControlFlow::Poll;
 
         match event {
@@ -106,7 +105,7 @@ pub fn run(
                 },
                 _ => {},
             },
-            winit::event::Event::EventsCleared => {
+            winit::event::Event::MainEventsCleared => {
                 if let Some(renderer) = &mut renderer {
                     let scene = renderer.get_scene();
 
@@ -262,8 +261,6 @@ pub fn run(
             renderer.take();
         }
     });
-
-    Ok(())
 }
 
 fn send_ui_texture_requests<B: rendy::hal::Backend>(

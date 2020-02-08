@@ -100,9 +100,10 @@ pub fn main(config: config::Config) -> Result<(), Error> {
 
     log::info!("Initializing rendering pipeline...");
 
-    let renderer = Renderer::new(&window, &config.display)?;
+    let (window, event_loop) = window.split();
+    let renderer = Renderer::new(window, &event_loop, &config.display)?;
 
     log::info!("Entering main loop");
     
-    eventloop::run(window, renderer, config, event_tx, main_update_rx, io_channel)
+    eventloop::run(renderer, event_loop, config, event_tx, main_update_rx, io_channel)
 }

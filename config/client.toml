@@ -1,0 +1,33 @@
+[client]
+server-address = "localhost:6142"
+tick-rate = 60
+
+[display]
+display-mode = "windowed"
+field-of-view = 68.0
+forward-interpolate = 0.5
+
+[key-map]
+move-forward = 17
+move-backward = 31
+move-left = 30
+move-right = 32
+move-up = 57
+
+[logging]
+level = "debug"
+file = "client.log"
+
+[mouse]
+sensitivity = 5.0
+
+[simulation]
+movement-speed = 8.5
+jump-force = 10.35
+
+[simulation.physics]
+gravity = 0.48
+min-collision-depth = 0.001
+max-ground-slope = 0.2
+horisontal-drag = 0.25
+vertical-drag = 0.0

@@ -2,13 +2,13 @@ use failure::{
     format_err,
     Error,
 };
+use rendy::init::AnyWindowedRendy;
 
 use super::{
     DisplayConfig,
     RenderGraph,
     scene,
     ui::UI,
-    window::Window,
 };
 
 type Backend = rendy::vulkan::Backend;
@@ -18,36 +18,48 @@ pub struct Renderer {
     families: rendy::command::Families<Backend>,
     scene: scene::Scene<Backend>,
     graph: Option<RenderGraph<Backend>>,
+    _window: winit::window::Window,
 }
 
 impl Renderer {
-    pub fn new(window: &Window, config: &DisplayConfig) -> Result<Renderer, Error> {
+    pub fn new(window: winit::window::WindowBuilder, event_loop: &winit::event_loop::EventLoop<()>, config: &DisplayConfig)
+    -> Result<Renderer, Error>
+    {
         let rendy_config: rendy::factory::Config = Default::default();
-        let (mut factory, mut families): (rendy::factory::Factory<Backend>, _) =
-            rendy::factory::init(rendy_config)
-                .map_err(|err| format_err!("failed to configure graphics device: {:?}", err))?;
 
-        let aspect = window.get_aspect_ratio() as f32;
-        let size = window.get_size();
+        let rendy = AnyWindowedRendy::init_auto(&rendy_config, window, &event_loop)
+                .map_err(|err| {
+                    log::error!("Graphics initialization failed: {}", err);
+                    format_err!("failed to configure graphics device")
+                })?;
+
         let time = std::time::Instant::now();
 
-        let mut scene = scene::Scene {
-            camera: scene::Camera::new(aspect, config.field_of_view),
-            models: Vec::new(),
-            textures: Vec::new(),
-            objects: Vec::new(),
-            ticks: [time, time],
-            ui: UI::new(size.width, size.height),
-        };
+        Ok(rendy::with_any_windowed_rendy!((rendy)
+            (mut factory, mut families, surface, window) => {
+                let size = window.inner_size();
+                let aspect = size.width as f32 / size.height as f32;
+                
+                let mut scene = scene::Scene {
+                    camera: scene::Camera::new(aspect, config.field_of_view),
+                    models: Vec::new(),
+                    textures: Vec::new(),
+                    objects: Vec::new(),
+                    ticks: [time, time],
+                    ui: UI::new(size.width as f64, size.height as f64),
+                };
 
-        let graph = Some(RenderGraph::new(
-            &mut factory,
-            &mut families,
-            &mut scene,
-            &window,
-        ));
+                let graph = Some(RenderGraph::new(
+                    &mut factory,
+                    &mut families,
+                    &mut scene,
+                    &size,
+                    surface,
+                ));
 
-        Ok(Renderer { factory, families, scene, graph })
+                Renderer { factory, families, scene, graph, _window: window }
+            }
+        ))
     }
 
     pub fn display(&mut self) {

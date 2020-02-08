@@ -37,14 +37,12 @@ where
         mut factory: &mut rendy::factory::Factory<B>,
         mut families: &mut rendy::command::Families<B>,
         mut scene: &mut Scene<B>,
-        window: &super::window::Window,
+        win_size: &winit::dpi::PhysicalSize<u32>,
+        surface: rendy::wsi::Surface<B>,
     ) -> RenderGraph<B> {
-        let surface = window.create_surface(&mut factory).unwrap();
-
         let mut graph_builder = rendy::graph::GraphBuilder::<B, Scene<B>>::new();
 
-        let win_size = window.get_size();
-        let win_kind = hal::image::Kind::D2(win_size.width as u32, win_size.height as u32, 1, 1);
+        let win_kind = hal::image::Kind::D2(win_size.width, win_size.height, 1, 1);
 
         let color = graph_builder.create_image(
             win_kind,
