@@ -6,7 +6,7 @@ use std::sync::mpsc::{
 };
 
 use failure::Error;
-use futures::sync::mpsc::unbounded;
+use futures::channel::mpsc::unbounded;
 
 use crate::{
     eventloop,

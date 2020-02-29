@@ -1,20 +1,16 @@
 use std::sync::mpsc::Sender;
+use std::net::{Ipv4Addr, SocketAddr};
 
-use failure::{
-    format_err,
-    Error,
-};
-use futures::sync::mpsc;
+use futures::channel::mpsc;
 use futures::stream::{
-    Stream,
+    StreamExt,
     SplitStream,
     SplitSink,
 };
-use tokio::net::{
-    UdpSocket,
-    UdpFramed,
-};
-use tokio::prelude::*;
+use futures::sink::SinkExt;
+use tokio::net::{lookup_host, UdpSocket};
+use tokio_util::udp::UdpFramed;
+use uuid::Uuid;
 
 use eternalreckoning_core::net::{
     codec::EternalReckoningCodec,
@@ -32,214 +28,120 @@ use crate::simulation::{
     },
 };
 
-pub fn connect(
+#[tokio::main]
+pub async fn connect(
     address: &String,
     update_rx: mpsc::UnboundedReceiver<Update>,
     event_tx: Sender<Event>,
 )
 {
-    let client = tokio_dns::resolve_sock_addr(&address[..])
-        .from_err()
-        .and_then(move |addr_vec| {
-            let socket = UdpSocket::bind(&([127, 0, 0, 1], 0).into())
-                .map_err(|err| {
-                    format_err!("Failed to bind udp socket: {}", err)
-                })
-                .unwrap();
+    let socket = UdpSocket::bind((Ipv4Addr::new(127, 0, 0, 1), 0)).await.unwrap();
 
-            let mut addr = None;
-            for try_addr in addr_vec {
-                if socket.connect(&try_addr).is_ok() {
-                    addr = Some(try_addr);
-                    break;
-                }
-            }
-            
-            let addr = match addr {
-                Some(addr) => addr,
-                None => {
-                    panic!("Failed to connect to server");
-                }
-            };
+    let mut addr = None;
+    for try_addr in lookup_host(&address[..]).await.unwrap() {
+        if socket.connect(&try_addr).await.is_ok() {
+            addr = Some(try_addr);
+            break;
+        }
+    }
 
-            log::info!("Connected to server: {}", addr);
+    let addr = match addr {
+        Some(addr) => addr,
+        None => panic!("Failed to connect to server"),
+    };
+    
+    log::info!("Connected to server: {}", addr);
 
-            UdpFramed::new(socket, EternalReckoningCodec)
-                .send((Operation::ClConnectMessage(operation::ClConnectMessage), addr))
-                .and_then(|framed| {
-                    framed.into_future().map_err(|(err, _stream)| err)
-                })
-                .map(move |(op, stream)| {
-                    if op.is_none() {
-                        return futures::future::err(
-                            failure::format_err!("connection closed")
-                        );
-                    }
-                    let op = op.unwrap().0;
+    let mut framed = UdpFramed::new(socket, EternalReckoningCodec);
+    let uuid = handshake(&mut framed, addr).await.unwrap();
 
-                    if let Operation::SvConnectResponse(operation::SvConnectResponse { uuid }) = op {
-                        event_tx.send(Event::ConnectionEvent(
-                            ConnectionEvent::Connected(uuid)
-                        )).unwrap();
+    event_tx.send(Event::ConnectionEvent(
+        ConnectionEvent::Connected(uuid)
+    )).unwrap();
 
-                        let (writer, reader) = stream.split();
+    let (writer, reader) = framed.split();
+    
+    tokio::spawn(async move {
+        read_connection(reader, event_tx, uuid).await;
+    });
 
-                        tokio::spawn(
-                            ReadConnection::new(reader, event_tx.clone())
-                                .map_err(move |err| {
-                                    log::error!("Receive failed: {:?}", err);
-                                    event_tx.send(Event::ConnectionEvent(
-                                        ConnectionEvent::Disconnected(uuid)
-                                    )).unwrap();
-                                })
-                        );
-
-                        tokio::spawn(
-                            WriteConnection::new(writer, addr, update_rx)
-                                .map_err(|err| {
-                                    log::error!("Write failed: {:?}", err);
-                                })
-                        );
-
-                        return futures::future::ok(());
-                    }
-
-                    futures::future::err(
-                        failure::format_err!("unexpected response from server")
-                    )
-                })
-                .map_err(|err| {
-                    failure::format_err!("handshake failed: {:?}", err)
-                })
-        })
-        .map(|_| ())
-        .map_err(|err| {
-            log::error!("Failed to connect to server: {:?}", err);
-        });
-
-    tokio::run(client);
+    tokio::spawn(async move {
+        write_connection(writer, update_rx, addr).await;
+    });
 }
 
-struct ReadConnection {
-    frames: SplitStream<UdpFramed<EternalReckoningCodec>>,
+async fn handshake(framed: &mut UdpFramed<EternalReckoningCodec>, addr: SocketAddr) -> Option<Uuid> {
+    framed.send((Operation::ClConnectMessage(operation::ClConnectMessage), addr)).await.unwrap();
+    match framed.next().await {
+        Some(Ok((op, _addr))) => match op {
+            Operation::SvConnectResponse(operation::SvConnectResponse { uuid }) => Some(uuid),
+            _ => None,
+        }
+        _ => None,
+    }
+}
+
+async fn read_connection(
+    mut framed: SplitStream<UdpFramed<EternalReckoningCodec>>,
     event_tx: Sender<Event>,
-}
-
-impl ReadConnection {
-    pub fn new(
-        frames: SplitStream<UdpFramed<EternalReckoningCodec>>,
-        event_tx: Sender<Event>,
-    ) -> ReadConnection
-    {
-        ReadConnection {
-            frames,
-            event_tx,
-        }
-    }
-
-    fn process_data(&mut self, packet: &Operation)
-        -> Result<(), Error> {
-        match packet {
-            Operation::SvUpdateWorld(_) => {
-                self.event_tx.send(Event::NetworkEvent(packet.clone()))?;
+    uuid: Uuid,
+) {
+    while let Some(frame) = framed.next().await {
+        match frame {
+            Ok((op, _addr)) => {
+                match op {
+                    Operation::SvUpdateWorld(_) => {
+                        event_tx.send(Event::NetworkEvent(op.clone())).unwrap();
+                    },
+                    _ => {
+                        log::warn!("Unexpected server message received, ignoring");
+                    }
+                }
             },
-            _ => {
-                log::warn!("Unexpected server message received, ignoring");
-            }
-        };
-        Ok(())
-    }
-}
-
-impl Future for ReadConnection {
-    type Item = ();
-    type Error = Error;
-
-    fn poll(&mut self) -> Poll<(), Error> {
-        while let Async::Ready(frame) = self.frames.poll()? {
-            if let Some(packet) = frame {
-                log::trace!("Packet: {}", &packet.0);
-                self.process_data(&packet.0)?;
-            } else {
-                // EOF
-                log::warn!("Disconnected from server");
-                return Ok(Async::Ready(()));
-            }
+            Err(err) => {
+                log::error!("Read failed: {}", err);
+                break;
+            },
         }
-
-        Ok(Async::NotReady)
     }
+
+    // EOF
+    log::warn!("Disconnected from server");
+    event_tx.send(Event::ConnectionEvent(
+        ConnectionEvent::Disconnected(uuid)
+    )).unwrap();
 }
 
-enum WriteConnectionState {
-    Sending,
-    Connected,
-}
-
-struct WriteConnection {
-    frames: SplitSink<UdpFramed<EternalReckoningCodec>>,
+async fn write_connection(
+    mut framed: SplitSink<UdpFramed<EternalReckoningCodec>, (Operation, SocketAddr)>,
+    mut update_rx: mpsc::UnboundedReceiver<Update>,
     addr: std::net::SocketAddr,
-    update_rx: mpsc::UnboundedReceiver<Update>,
-    state: WriteConnectionState,
-}
-
-impl WriteConnection {
-    pub fn new(
-        frames: SplitSink<UdpFramed<EternalReckoningCodec>>,
-        addr: std::net::SocketAddr,
-        update_rx: mpsc::UnboundedReceiver<Update>,
-    ) -> WriteConnection
-    {
-        WriteConnection {
-            frames,
-            addr,
-            update_rx,
-            state: WriteConnectionState::Connected,
-        }
-    }
-
-    fn send(&mut self, packet: Operation) -> Result<(), Error> {
-        self.frames.start_send((packet, self.addr))?;
-        self.state = WriteConnectionState::Sending;
-        Ok(())
-    }
-}
-
-impl Future for WriteConnection {
-    type Item = ();
-    type Error = Error;
-
-    fn poll(&mut self) -> Poll<(), Error> {
-        loop {
-            match self.state {
-                WriteConnectionState::Sending => {
-                    futures::try_ready!(self.frames.poll_complete());
-                    self.state = WriteConnectionState::Connected;
-                },
-                WriteConnectionState::Connected => {
-                    match self.update_rx.poll() {
-                        Ok(Async::Ready(Some(update))) => {
-                            match update {
-                                simulation::event::Update::PositionUpdate(data) => {
-                                    self.send(Operation::ClMoveSetPosition(
-                                        operation::ClMoveSetPosition {
-                                            pos: data.position.clone(),
-                                        }
-                                    ))?;
-                                },
-                                _ => (),
-                            }
-                        },
-                        Err(err) => {
-                            log::warn!("Update channel closed: {:?}", err);
-                            return Ok(Async::Ready(()));
+) {
+    loop {
+        match update_rx.next().await {
+            Some(update) => {
+                match update {
+                    simulation::event::Update::PositionUpdate(data) => {
+                        let result = framed.send((
+                            Operation::ClMoveSetPosition(
+                                operation::ClMoveSetPosition {
+                                    pos: data.position.clone(),
+                                }
+                            ),
+                            addr
+                        )).await;
+                        if let Err(err) = result {
+                            log::error!("Send failed: {}", err);
+                            return;
                         }
-                        _ => {
-                            return Ok(Async::NotReady);
-                        },
-                    };
-                },
-            }
+                    },
+                    _ => (),
+                }
+            },
+            None => {
+                log::warn!("Update channel closed");
+                return;
+            },
         }
     }
 }

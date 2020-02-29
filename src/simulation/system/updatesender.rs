@@ -1,6 +1,6 @@
 use std::sync::mpsc::Sender;
 
-use futures::sync::mpsc::UnboundedSender;
+use futures::channel::mpsc::UnboundedSender;
 use specs::prelude::*;
 
 use eternalreckoning_core::simulation::TickTime;

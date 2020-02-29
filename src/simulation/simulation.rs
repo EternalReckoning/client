@@ -5,7 +5,7 @@ use specs::{
     WorldExt,
     world::Builder,
 };
-use futures::sync::mpsc::UnboundedSender;
+use futures::channel::mpsc::UnboundedSender;
 
 use crate::input::MouseEuler;
 use crate::loaders::heightmap_from_bmp;
