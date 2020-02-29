@@ -1,6 +1,6 @@
 [package]
 name = "eternalreckoning-client"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Henry Carlson <henry.carlson@gmail.com>"]
 edition = "2018"
 
